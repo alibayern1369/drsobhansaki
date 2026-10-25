@@ -44,3 +44,4 @@ next-package.tgz
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.neon
