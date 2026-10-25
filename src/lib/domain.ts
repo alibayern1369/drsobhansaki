@@ -67,13 +67,22 @@ export function validateReceipt(bytes: Uint8Array, declaredMime: string) {
   const png = [137, 80, 78, 71, 13, 10, 26, 10].every((v, i) => bytes[i] === v);
   const jpeg = bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
   const pdf = String.fromCharCode(...bytes.slice(0, 5)) === "%PDF-";
+  const webp =
+    bytes.length >= 16 &&
+    String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+    String.fromCharCode(...bytes.slice(8, 12)) === "WEBP" &&
+    ["VP8 ", "VP8L", "VP8X"].includes(
+      String.fromCharCode(...bytes.slice(12, 16)),
+    );
   const mime = png
     ? "image/png"
     : jpeg
       ? "image/jpeg"
       : pdf
         ? "application/pdf"
-        : null;
+        : webp
+          ? "image/webp"
+          : null;
   if (!mime || mime !== declaredMime) throw new Error("INVALID_FILE_SIGNATURE");
   return mime;
 }

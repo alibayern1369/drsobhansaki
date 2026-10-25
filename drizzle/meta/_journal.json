@@ -15,6 +15,13 @@
       "when": 1792947333630,
       "tag": "0001_amusing_ulik",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792951927282,
+      "tag": "0002_colossal_maginty",
+      "breakpoints": true
     }
   ]
 }

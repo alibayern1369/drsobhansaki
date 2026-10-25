@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { type Locale } from "@/lib/content";
+import { ReceiptRetentionControls } from "./receipt-storage-settings";
 export function AdminAppointmentActions({
   locale,
   id,
@@ -18,7 +19,14 @@ export function AdminAppointmentActions({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [receipts, setReceipts] = useState<
-    { id: string; scanStatus: string }[]
+    {
+      id: string;
+      scanStatus: string;
+      retentionHold: boolean;
+      legalRetentionHold: boolean;
+      disputeActive: boolean;
+      legalRetentionUntil: string | null;
+    }[]
   >([]);
   const [slots, setSlots] = useState<
     {
@@ -81,28 +89,35 @@ export function AdminAppointmentActions({
         {fa ? "رسیدها و زمان‌بندی" : "Receipts & scheduling"}
       </button>
       {receipts.map((r) => (
-        <div className="summary-line" key={r.id}>
-          <span>
-            {fa ? "رسید پرداخت" : "Payment receipt"} · {r.scanStatus}
-          </span>
-          <button
-            className="text-link"
-            style={{ background: "none" }}
-            onClick={async () => {
-              try {
-                const res = await fetch(`/api/receipts/${r.id}`, {
-                  headers: { "Accept-Language": locale },
-                });
-                const d = await res.json();
-                if (!res.ok) throw new Error(d.message);
-                setUrl(d.url);
-              } catch (e) {
-                setMessage((e as Error).message);
-              }
-            }}
-          >
-            {fa ? "دریافت لینک موقت" : "Get temporary link"}
-          </button>
+        <div key={r.id}>
+          <div className="summary-line">
+            <span>
+              {fa ? "رسید پرداخت" : "Payment receipt"} · {r.scanStatus}
+            </span>
+            <button
+              className="text-link"
+              style={{ background: "none" }}
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/receipts/${r.id}`, {
+                    headers: { "Accept-Language": locale },
+                  });
+                  const d = await res.json();
+                  if (!res.ok) throw new Error(d.message);
+                  setUrl(d.url);
+                } catch (e) {
+                  setMessage((e as Error).message);
+                }
+              }}
+            >
+              {fa ? "دسترسی امن به رسید" : "Access private receipt"}
+            </button>
+          </div>
+          <ReceiptRetentionControls
+            receiptId={r.id}
+            locale={locale}
+            initial={r}
+          />
         </div>
       ))}
       {url && (
@@ -113,9 +128,7 @@ export function AdminAppointmentActions({
           className="button button-small"
           style={{ marginTop: 10 }}
         >
-          {fa
-            ? "دانلود رسید (اعتبار ۶۰ ثانیه)"
-            : "Download receipt (valid for 60 seconds)"}
+          {fa ? "دانلود رسید با بررسی دسترسی" : "Download with authorization"}
         </a>
       )}
       {["awaiting_scheduling", "confirmed"].includes(status) &&

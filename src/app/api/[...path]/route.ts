@@ -17,7 +17,6 @@ import {
   reviewPayment,
   assignSlot,
 } from "@/server/appointments";
-import { uploadReceipt, receiptUrl } from "@/server/storage";
 import { verifyMfa } from "@/server/mfa";
 import { assertTransition, canVerifyPayment } from "@/lib/domain";
 import { adminOperations } from "@/server/admin-operations";
@@ -172,24 +171,6 @@ async function dispatch(request: Request, segments: string[], method: string) {
   if (
     method === "POST" &&
     segments[0] === "appointments" &&
-    segments[2] === "receipt"
-  ) {
-    uuid.parse(segments[1]);
-    const form = await request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) throw new AppError(400, "FILE_REQUIRED");
-    return response(
-      await uploadReceipt(
-        segments[1],
-        uuid.parse(form.get("bankAccountId")),
-        file,
-      ),
-      201,
-    );
-  }
-  if (
-    method === "POST" &&
-    segments[0] === "appointments" &&
     segments[2] === "request"
   ) {
     const user = await requireUser();
@@ -209,8 +190,6 @@ async function dispatch(request: Request, segments: string[], method: string) {
       .values({ appointmentId: id, patientId: user.id, kind: data.kind });
     return response({ ok: true });
   }
-  if (method === "GET" && segments[0] === "receipts" && segments.length === 2)
-    return response({ url: await receiptUrl(uuid.parse(segments[1])) });
   if (segments[0] === "admin") {
     const user = await requireUser(true);
     const db = getDb();

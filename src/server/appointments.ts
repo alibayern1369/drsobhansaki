@@ -10,6 +10,8 @@ import {
   appointmentStatusHistory,
   notifications,
   paymentVerificationEvents,
+  paymentSubmissions,
+  paymentReceipts,
   websiteSettings,
   blockedDates,
   auditLogs,
@@ -187,6 +189,9 @@ export async function reviewPayment(
   if (data.action === "approve" && !data.bankDepositVerified)
     throw new AppError(400, "BANK_VERIFICATION_REQUIRED");
   return getDb().transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('receipt-cleanup'))`,
+    );
     const [existing] = await tx
       .select()
       .from(paymentVerificationEvents)
@@ -224,6 +229,29 @@ export async function reviewPayment(
           : "awaiting_scheduling"
         : "awaiting_verification";
     assertTransition("appointment", a.status, status);
+    const reviewedPayments = await tx
+      .update(paymentSubmissions)
+      .set({ status: paymentStatus })
+      .where(
+        and(
+          eq(paymentSubmissions.appointmentId, id),
+          eq(paymentSubmissions.status, "under_review"),
+        ),
+      )
+      .returning({ id: paymentSubmissions.id });
+    if (!reviewedPayments.length) throw new AppError(409, "INVALID_TRANSITION");
+    await tx
+      .update(paymentReceipts)
+      .set({ verificationStatus: paymentStatus })
+      .where(
+        and(
+          inArray(
+            paymentReceipts.paymentId,
+            reviewedPayments.map((p) => p.id),
+          ),
+          eq(paymentReceipts.verificationStatus, "under_review"),
+        ),
+      );
     await tx
       .update(appointments)
       .set({

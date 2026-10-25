@@ -4,6 +4,7 @@ import { type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
 import { AdminOperations } from "./admin-operations";
 import { AdminAppointmentActions } from "./admin-appointment-actions";
+import { ReceiptStorageSettings } from "./receipt-storage-settings";
 type AdminData = {
   appointments: Array<{
     id: string;
@@ -112,6 +113,7 @@ export function AdminPanel({
     ["roles", "کاربران و نقش‌ها", "Users & roles", "shield"],
     ["audit", "گزارش امنیتی", "Security logs", "lock"],
     ["settings", "تنظیمات سامانه", "System settings", "settings"],
+    ["receipt-storage", "رسیدها و نگهداری", "Receipts & retention", "shield"],
   ];
   if (mfa)
     return (
@@ -515,6 +517,9 @@ export function AdminPanel({
                     : "Edit homepage text keys per locale. Publishing requires your approval."
                 }
               />
+            )}
+            {tab === "receipt-storage" && (
+              <ReceiptStorageSettings locale={locale} />
             )}
             {["branding", "seo", "settings"].includes(tab) && (
               <JsonEditor

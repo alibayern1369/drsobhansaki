@@ -275,20 +275,78 @@ export const paymentSubmissions = pgTable("payment_submissions", {
     .references(() => bankAccounts.id)
     .notNull(),
   status: paymentEnum("status").default("receipt_submitted").notNull(),
+  disputeActive: boolean("dispute_active").default(false).notNull(),
+  retentionHold: boolean("retention_hold").default(false).notNull(),
+  legalRetentionUntil: timestamp("legal_retention_until", {
+    withTimezone: true,
+  }),
   createdAt: created(),
 });
-export const paymentReceipts = pgTable("payment_receipts", {
+export const paymentReceipts = pgTable(
+  "payment_receipts",
+  {
+    id: id(),
+    paymentId: uuid("submission_id")
+      .references(() => paymentSubmissions.id)
+      .notNull(),
+    objectKey: text("object_key").notNull().unique(),
+    patientId: uuid("patient_id")
+      .references(() => users.id)
+      .notNull(),
+    provider: text("provider").default("legacy_s3").notNull(),
+    blobPathname: text("blob_pathname").unique(),
+    originalFilename: text("original_filename").default("receipt").notNull(),
+    verificationStatus: text("verification_status")
+      .default("under_review")
+      .notNull(),
+    deletionStatus: text("deletion_status").default("active").notNull(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletionAttempts: integer("deletion_attempts").default(0).notNull(),
+    lastDeletionError: text("last_deletion_error"),
+    nextDeletionAttemptAt: timestamp("next_deletion_attempt_at", {
+      withTimezone: true,
+    }),
+    retentionHold: boolean("retention_hold").default(false).notNull(),
+    legalRetentionHold: boolean("legal_retention_hold")
+      .default(false)
+      .notNull(),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    uploadExpiresAt: timestamp("upload_expires_at", { withTimezone: true }),
+    tokenIssueCount: integer("token_issue_count").default(0).notNull(),
+    uploadIdempotencyKey: uuid("upload_idempotency_key").unique(),
+    mimeType: text("mime_type").notNull(),
+    fileSize: integer("size_bytes").notNull(),
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    scanStatus: text("scan_status").default("pending").notNull(),
+    retainedUntil: timestamp("retained_until", {
+      withTimezone: true,
+    }).notNull(),
+    createdAt: created(),
+  },
+  (t) => [
+    index("receipt_patient_idx").on(t.patientId),
+    index("receipt_cleanup_idx").on(t.deletionStatus, t.uploadedAt),
+    index("receipt_payment_idx").on(t.paymentId),
+    check(
+      "receipt_size_limit",
+      sql`${t.fileSize}>0 and ${t.fileSize}<=5242880`,
+    ),
+  ],
+);
+export const receiptCleanupRuns = pgTable("receipt_cleanup_runs", {
   id: id(),
-  submissionId: uuid("submission_id")
-    .references(() => paymentSubmissions.id)
-    .notNull(),
-  objectKey: text("object_key").notNull().unique(),
-  mimeType: text("mime_type").notNull(),
-  sizeBytes: integer("size_bytes").notNull(),
-  sha256: varchar("sha256", { length: 64 }).notNull(),
-  scanStatus: text("scan_status").default("pending").notNull(),
-  retainedUntil: timestamp("retained_until", { withTimezone: true }).notNull(),
-  createdAt: created(),
+  startedAt: created(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+  dryRun: boolean("dry_run").notNull(),
+  status: text("status").notNull(),
+  scanned: integer("scanned").default(0).notNull(),
+  eligible: integer("eligible").default(0).notNull(),
+  deleted: integer("deleted").default(0).notNull(),
+  errors: integer("errors").default(0).notNull(),
+  blockedReasons: jsonb("blocked_reasons"),
+  errorCode: text("error_code"),
 });
 export const paymentVerificationEvents = pgTable(
   "payment_verification_events",

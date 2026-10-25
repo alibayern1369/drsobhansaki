@@ -69,15 +69,13 @@ export async function adminOperations(
           .set({ ...data, updatedAt: new Date() })
           .where(eq(s.users.id, id));
         await tx.delete(s.sessions).where(eq(s.sessions.userId, id));
-        await tx
-          .insert(s.auditLogs)
-          .values({
-            actorId: user.id,
-            action: "user.role_update",
-            entityType: "user",
-            entityId: id,
-            metadata: { role: data.role, disabled: data.disabled },
-          });
+        await tx.insert(s.auditLogs).values({
+          actorId: user.id,
+          action: "user.role_update",
+          entityType: "user",
+          entityId: id,
+          metadata: { role: data.role, disabled: data.disabled },
+        });
       });
       return json({ ok: true });
     }
@@ -130,14 +128,12 @@ export async function adminOperations(
         endsAt: new Date(data.endsAt),
       })
       .returning();
-    await db
-      .insert(s.auditLogs)
-      .values({
-        actorId: user.id,
-        action: "calendar.block",
-        entityType: "blocked_date",
-        entityId: row.id,
-      });
+    await db.insert(s.auditLogs).values({
+      actorId: user.id,
+      action: "calendar.block",
+      entityType: "blocked_date",
+      entityId: row.id,
+    });
     return json(row, 201);
   }
   if (key === "slots" && method === "PUT" && path[2]) {
@@ -148,14 +144,12 @@ export async function adminOperations(
       .update(s.appointmentSlots)
       .set(data)
       .where(eq(s.appointmentSlots.id, id));
-    await db
-      .insert(s.auditLogs)
-      .values({
-        actorId: user.id,
-        action: "slot.update",
-        entityType: "slot",
-        entityId: id,
-      });
+    await db.insert(s.auditLogs).values({
+      actorId: user.id,
+      action: "slot.update",
+      entityType: "slot",
+      entityId: id,
+    });
     return json({ ok: true });
   }
   if (key === "sms" && method === "GET") {
@@ -202,14 +196,12 @@ export async function adminOperations(
             updatedAt: new Date(),
           },
         });
-      await tx
-        .insert(s.auditLogs)
-        .values({
-          actorId: user.id,
-          action: "sms.template_update",
-          entityType: "sms_template",
-          entityId: data.key,
-        });
+      await tx.insert(s.auditLogs).values({
+        actorId: user.id,
+        action: "sms.template_update",
+        entityType: "sms_template",
+        entityId: data.key,
+      });
     });
     return json({ ok: true });
   }
@@ -222,14 +214,12 @@ export async function adminOperations(
       .where(
         and(eq(s.notifications.id, id), eq(s.notifications.status, "failed")),
       );
-    await db
-      .insert(s.auditLogs)
-      .values({
-        actorId: user.id,
-        action: "sms.retry",
-        entityType: "notification",
-        entityId: id,
-      });
+    await db.insert(s.auditLogs).values({
+      actorId: user.id,
+      action: "sms.retry",
+      entityType: "notification",
+      entityId: id,
+    });
     return json({ ok: true });
   }
   if (key === "banks" && method === "GET") {
@@ -258,14 +248,12 @@ export async function adminOperations(
         .update(s.bankAccounts)
         .set({ ...data, updatedAt: new Date() })
         .where(eq(s.bankAccounts.id, id));
-      await tx
-        .insert(s.auditLogs)
-        .values({
-          actorId: user.id,
-          action: "bank.update",
-          entityType: "bank",
-          entityId: id,
-        });
+      await tx.insert(s.auditLogs).values({
+        actorId: user.id,
+        action: "bank.update",
+        entityType: "bank",
+        entityId: id,
+      });
     });
     return json({ ok: true });
   }
@@ -300,22 +288,26 @@ export async function adminOperations(
         id: s.paymentReceipts.id,
         mimeType: s.paymentReceipts.mimeType,
         scanStatus: s.paymentReceipts.scanStatus,
+        verificationStatus: s.paymentReceipts.verificationStatus,
+        deletionStatus: s.paymentReceipts.deletionStatus,
+        retentionHold: s.paymentReceipts.retentionHold,
+        legalRetentionHold: s.paymentReceipts.legalRetentionHold,
+        disputeActive: s.paymentSubmissions.disputeActive,
+        legalRetentionUntil: s.paymentSubmissions.legalRetentionUntil,
         createdAt: s.paymentReceipts.createdAt,
       })
       .from(s.paymentReceipts)
       .innerJoin(
         s.paymentSubmissions,
-        eq(s.paymentSubmissions.id, s.paymentReceipts.submissionId),
+        eq(s.paymentSubmissions.id, s.paymentReceipts.paymentId),
       )
       .where(eq(s.paymentSubmissions.appointmentId, id));
-    await db
-      .insert(s.auditLogs)
-      .values({
-        actorId: user.id,
-        action: "payment.details_access",
-        entityType: "appointment",
-        entityId: id,
-      });
+    await db.insert(s.auditLogs).values({
+      actorId: user.id,
+      action: "payment.details_access",
+      entityType: "appointment",
+      entityId: id,
+    });
     return json(rows);
   }
   if (key === "appointment-requests" && method === "GET")

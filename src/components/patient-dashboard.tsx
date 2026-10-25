@@ -4,6 +4,9 @@ import Link from "next/link";
 import { copy, type Locale } from "@/lib/content";
 import { formatMoney } from "@/lib/domain";
 import { Icon } from "./icon";
+import { upload } from "@vercel/blob/client";
+import { MAX_RECEIPT_BYTES, RECEIPT_MIME_TYPES } from "@/lib/receipt-policy";
+import { PatientReceipts } from "./patient-receipts";
 type Appointment = {
   id: string;
   trackingCode: string;
@@ -162,8 +165,34 @@ export function PatientDashboard({ locale }: { locale: Locale }) {
               "rejected",
               "additional_information_required",
             ].includes(a.paymentStatus) && (
-              <ReceiptForm appointmentId={a.id} locale={locale} />
+              <ReceiptForm
+                appointmentId={a.id}
+                locale={locale}
+                onSubmitted={() => {
+                  setItems((previous) =>
+                    previous.map((item) =>
+                      item.id === a.id
+                        ? {
+                            ...item,
+                            paymentStatus: "under_review",
+                            status: "awaiting_verification",
+                          }
+                        : item,
+                    ),
+                  );
+                  setMessage(
+                    fa
+                      ? "رسید خصوصی برای بررسی ارسال شد؛ واریز هنوز تأیید نشده است."
+                      : "Private receipt submitted for review. The bank transfer is not yet approved.",
+                  );
+                }}
+              />
             )}
+            <PatientReceipts
+              appointmentId={a.id}
+              locale={locale}
+              refreshKey={a.paymentStatus}
+            />
             <div style={{ display: "flex", gap: 15, marginTop: 18 }}>
               <button
                 className="text-link"
@@ -212,9 +241,11 @@ function statusLabel(value: string, locale: Locale) {
 function ReceiptForm({
   appointmentId,
   locale,
+  onSubmitted,
 }: {
   appointmentId: string;
   locale: Locale;
+  onSubmitted: () => void;
 }) {
   const fa = locale === "fa";
   const [banks, setBanks] = useState<
@@ -224,6 +255,13 @@ function ReceiptForm({
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploaded, setUploaded] = useState(false);
+  const [uploadKey, setUploadKey] = useState(() => crypto.randomUUID());
+  const [pendingUpload, setPendingUpload] = useState<{
+    receiptId: string;
+    pathname: string;
+  } | null>(null);
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json())
@@ -232,26 +270,91 @@ function ReceiptForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!file) return;
-    setBusy(true);
-    const data = new FormData();
-    data.set("file", file);
-    data.set("bankAccountId", bank);
-    try {
-      const r = await fetch(`/api/appointments/${appointmentId}/receipt`, {
-        method: "POST",
-        headers: { "Accept-Language": locale },
-        body: data,
-      });
-      const d = await r.json();
+    if (
+      file.size === 0 ||
+      file.size > MAX_RECEIPT_BYTES ||
+      !RECEIPT_MIME_TYPES.includes(
+        file.type as (typeof RECEIPT_MIME_TYPES)[number],
+      )
+    ) {
       setMessage(
-        r.ok
-          ? fa
-            ? "رسید برای بررسی ارسال شد؛ پرداخت هنوز تأیید نشده است."
-            : "Receipt submitted for review. Payment is not yet approved."
-          : d.message,
+        fa
+          ? "فایل باید JPEG، PNG، WebP یا PDF و حداکثر ۵ مگابایت باشد."
+          : "Use JPEG, PNG, WebP or PDF up to 5 MB.",
       );
-    } catch {
-      setMessage(fa ? "خطا در ارسال فایل" : "Upload failed");
+      return;
+    }
+    setBusy(true);
+    try {
+      let intent = pendingUpload;
+      if (!intent) {
+        const prepared = await fetch(
+          `/api/appointments/${appointmentId}/receipt`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept-Language": locale,
+            },
+            body: JSON.stringify({
+              bankAccountId: bank,
+              originalFilename: file.name,
+              mimeType: file.type,
+              fileSize: file.size,
+              idempotencyKey: uploadKey,
+            }),
+          },
+        );
+        const data = await prepared.json();
+        if (!prepared.ok) throw new Error(data.message);
+        intent = { receiptId: data.receiptId, pathname: data.pathname };
+        setPendingUpload(intent);
+      }
+      if (!uploaded) {
+        await upload(intent.pathname, file, {
+          access: "private",
+          handleUploadUrl: "/api/receipts/uploads",
+          clientPayload: JSON.stringify({ receiptId: intent.receiptId }),
+          contentType: file.type,
+          multipart: false,
+          headers: { "Accept-Language": locale },
+          onUploadProgress: (event) => setUploadProgress(event.percentage),
+        });
+        setUploaded(true);
+      }
+      setUploadProgress(100);
+      const finalized = await fetch(
+        `/api/receipts/${intent.receiptId}/complete`,
+        { method: "POST", headers: { "Accept-Language": locale } },
+      );
+      const result = await finalized.json();
+      if (!finalized.ok) {
+        if (finalized.status === 422) {
+          setPendingUpload(null);
+          setUploaded(false);
+          setUploadProgress(0);
+          setUploadKey(crypto.randomUUID());
+        }
+        throw new Error(result.message);
+      }
+      setMessage(
+        fa
+          ? "رسید خصوصی ذخیره و برای بررسی ارسال شد؛ واریز هنوز تأیید نشده است."
+          : "Your private receipt was submitted for review. The bank transfer is not yet approved.",
+      );
+      setPendingUpload(null);
+      setUploaded(false);
+      setUploadProgress(0);
+      setUploadKey(crypto.randomUUID());
+      onSubmitted();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : fa
+            ? "خطا در ارسال فایل"
+            : "Upload failed",
+      );
     } finally {
       setBusy(false);
     }
@@ -283,6 +386,7 @@ function ReceiptForm({
           id={`bank-${appointmentId}`}
           required
           value={bank}
+          disabled={busy || !!pendingUpload}
           onChange={(e) => setBank(e.target.value)}
         >
           <option value="">{fa ? "انتخاب کنید" : "Select account"}</option>
@@ -302,15 +406,28 @@ function ReceiptForm({
         <input
           id={`file-${appointmentId}`}
           type="file"
-          accept="image/png,image/jpeg,application/pdf"
+          accept="image/png,image/jpeg,image/webp,application/pdf"
           required
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          disabled={busy || !!pendingUpload}
+          onChange={(e) => {
+            setFile(e.target.files?.[0] || null);
+            setUploadProgress(0);
+          }}
         />
       </div>
       <button className="button button-small" disabled={busy || !banks.length}>
         {fa ? "ارسال رسید برای بررسی" : "Submit receipt for review"}
         <Icon name="upload" size={15} />
       </button>
+      {busy && (
+        <p role="status" style={{ fontSize: 11, marginTop: 12 }}>
+          {uploadProgress >= 100
+            ? fa
+              ? "در حال بررسی فایل در سرور…"
+              : "Validating the uploaded file…"
+            : `${Math.round(uploadProgress)}%`}
+        </p>
+      )}
       {message && (
         <div className="notice" role="status" style={{ marginTop: 15 }}>
           {message}

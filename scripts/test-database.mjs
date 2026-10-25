@@ -9,6 +9,8 @@ const result = spawnSync(
     "--test",
     "tests/database.test.ts",
     "tests/domain.test.ts",
+    "tests/receipts.test.ts",
+    "tests/receipt-database.test.ts",
   ],
   {
     stdio: "inherit",

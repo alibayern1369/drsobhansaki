@@ -1,4 +1,7 @@
 {
   "framework": "nextjs",
-  "crons": [{ "path": "/api/jobs", "schedule": "0 6 * * *" }]
+  "crons": [
+    { "path": "/api/jobs", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/cleanup-receipts", "schedule": "0 3 * * *" }
+  ]
 }

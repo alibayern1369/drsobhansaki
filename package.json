@@ -2,6 +2,11 @@
   "name": "drsobhansaki",
   "version": "0.1.0",
   "private": true,
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "$zod"
+    }
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -19,9 +24,8 @@
     "db:seed": "tsx --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1156.0",
-    "@aws-sdk/s3-request-presigner": "^3.1156.0",
     "@radix-ui/react-slot": "^1.5.0",
+    "@vercel/blob": "^2.8.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.4",
