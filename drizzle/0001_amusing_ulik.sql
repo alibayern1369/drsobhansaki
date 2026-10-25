@@ -1,0 +1,1 @@
+ALTER TABLE "appointments" ADD CONSTRAINT "confirmed_appointment_integrity" CHECK ("appointments"."status" not in ('confirmed','in_progress','completed') or ("appointments"."slot_id" is not null and "appointments"."confirmed_at" is not null and "appointments"."payment_status" in ('approved','refunded')));

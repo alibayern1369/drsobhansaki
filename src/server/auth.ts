@@ -1,0 +1,107 @@
+import "server-only";
+import { randomInt, timingSafeEqual } from "node:crypto";
+import { and, desc, eq, isNull, gt, sql } from "drizzle-orm";
+import { getDb } from "@/db";
+import { otpChallenges, users } from "@/db/schema";
+import { phoneSchema } from "@/lib/domain";
+import {
+  AppError,
+  createSession,
+  otpHash,
+  rateLimit,
+  requestKey,
+} from "./security";
+import { sendSms } from "./sms";
+export async function requestOtp(phone: string) {
+  phoneSchema.parse(phone);
+  await rateLimit(`otp:ip:${await requestKey()}`, 15, 900);
+  await rateLimit(`otp:phone:${phone}`, 3, 600);
+  const dev =
+    process.env.NODE_ENV !== "production" &&
+    process.env.SMS_PROVIDER === "development";
+  const code = dev
+    ? process.env.DEV_OTP_CODE
+    : String(randomInt(100000, 1000000));
+  if (!code || !/^\d{6}$/.test(code))
+    throw new AppError(503, "AUTH_NOT_CONFIGURED");
+  const db = getDb();
+  const digest = otpHash(phone, code);
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${phone}))`);
+    await tx
+      .update(otpChallenges)
+      .set({ consumedAt: new Date() })
+      .where(
+        and(eq(otpChallenges.phone, phone), isNull(otpChallenges.consumedAt)),
+      );
+    await tx.insert(otpChallenges).values({
+      phone,
+      codeHash: digest,
+      expiresAt: new Date(Date.now() + 300000),
+    });
+  });
+  try {
+    await sendSms(
+      phone,
+      `کد ورود شما: ${code}\nاین کد را در اختیار دیگران نگذارید.`,
+    );
+  } catch (e) {
+    await db
+      .update(otpChallenges)
+      .set({ consumedAt: new Date() })
+      .where(
+        and(eq(otpChallenges.phone, phone), isNull(otpChallenges.consumedAt)),
+      );
+    throw e;
+  }
+}
+export async function verifyOtp(phone: string, code: string) {
+  phoneSchema.parse(phone);
+  if (!/^\d{6}$/.test(code)) throw new AppError(400, "INVALID_OTP");
+  await rateLimit(`verify:${await requestKey()}`, 30, 900);
+  const db = getDb();
+  const result = await db.transaction(async (tx) => {
+    const [challenge] = await tx
+      .select()
+      .from(otpChallenges)
+      .where(
+        and(
+          eq(otpChallenges.phone, phone),
+          isNull(otpChallenges.consumedAt),
+          gt(otpChallenges.expiresAt, new Date()),
+        ),
+      )
+      .orderBy(desc(otpChallenges.createdAt))
+      .limit(1)
+      .for("update");
+    if (!challenge || challenge.attempts >= 5) return null;
+    await tx
+      .update(otpChallenges)
+      .set({ attempts: challenge.attempts + 1 })
+      .where(eq(otpChallenges.id, challenge.id));
+    if (
+      !timingSafeEqual(
+        Buffer.from(challenge.codeHash),
+        Buffer.from(otpHash(phone, code)),
+      )
+    )
+      return null;
+    await tx
+      .update(otpChallenges)
+      .set({ consumedAt: new Date() })
+      .where(eq(otpChallenges.id, challenge.id));
+    const [user] = await tx
+      .insert(users)
+      .values({ phone })
+      .onConflictDoUpdate({
+        target: users.phone,
+        set: { updatedAt: new Date() },
+      })
+      .returning();
+    if (user.disabled) return null;
+    return user;
+  });
+  if (!result) throw new AppError(400, "INVALID_OTP");
+  await createSession(result.id);
+  return result;
+}

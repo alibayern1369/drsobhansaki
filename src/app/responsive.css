@@ -1,0 +1,965 @@
+@media (min-width: 1450px) {
+  .hero {
+    min-height: 660px;
+  }
+  .hero h1 {
+    font-size: 70px;
+  }
+  .hero-visual {
+    height: 490px;
+  }
+}
+@media (max-width: 1150px) {
+  .site-shell {
+    padding: 0 28px;
+  }
+  .header {
+    gap: 14px;
+    height: 95px;
+  }
+  .navigation {
+    gap: 17px;
+  }
+  .header-actions {
+    gap: 12px;
+  }
+  .login-link {
+    font-size: 0;
+    gap: 0;
+  }
+  .hero {
+    padding: 40px;
+    gap: 35px;
+    min-height: 570px;
+  }
+  .hero h1 {
+    font-size: 53px;
+  }
+  .hero-visual {
+    height: 420px;
+  }
+  .hero-buttons {
+    gap: 8px;
+  }
+  .hero-buttons .button {
+    gap: 13px;
+    padding: 12px 16px;
+    font-size: 12px;
+  }
+  .care-floating {
+    inset-inline-start: -30px;
+  }
+  .consult-floating {
+    inset-inline-end: -20px;
+  }
+  .hero-trust {
+    gap: 15px;
+    font-size: 9px;
+  }
+  .floating-card {
+    padding: 12px;
+  }
+  .floating-card strong {
+    font-size: 11px;
+  }
+  .hero-copy > p {
+    font-size: 13px;
+  }
+  .section {
+    padding-inline: 5px;
+  }
+  .section-heading h2 {
+    font-size: 26px;
+  }
+  .about-section {
+    gap: 50px;
+  }
+  .about-copy h2 {
+    font-size: 30px;
+  }
+  .footer-main {
+    gap: 30px;
+  }
+  .footer {
+    padding-inline: 5px;
+  }
+  [dir="ltr"] .hero h1 {
+    font-size: 52px;
+  }
+  [dir="ltr"] .navigation {
+    gap: 14px;
+    font-size: 10px;
+  }
+  .brand strong {
+    font-size: 17px;
+  }
+  .trust-strip {
+    font-size: 10px;
+  }
+  .trust-strip > span {
+    display: none;
+  }
+}
+@media (max-width: 850px) {
+  .header {
+    height: 85px;
+  }
+  .navigation {
+    display: none;
+    position: absolute;
+    top: 77px;
+    left: 25px;
+    right: 25px;
+    z-index: 20;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    box-shadow: 0 12px 30px #1d335115;
+    padding: 20px;
+  }
+  .navigation.is-open {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .navigation a.active:after {
+    display: none;
+  }
+  .menu-toggle {
+    display: block;
+  }
+  .header-actions {
+    gap: 17px;
+  }
+  .login-link {
+    font-size: 11px;
+    gap: 5px;
+  }
+  .hero {
+    padding: 35px 28px;
+    gap: 20px;
+    min-height: 520px;
+  }
+  .hero h1 {
+    font-size: 44px;
+  }
+  .hero-visual {
+    height: 370px;
+  }
+  .hero-eyebrow {
+    font-size: 9px;
+  }
+  .hero-copy > p {
+    font-size: 12px;
+  }
+  .hero-buttons .button {
+    font-size: 10px;
+    padding: 11px 12px;
+    gap: 8px;
+    min-height: 43px;
+  }
+  .hero-trust {
+    flex-direction: column;
+    gap: 9px;
+    margin-top: 23px;
+  }
+  .care-floating {
+    top: 25px;
+    inset-inline-start: -17px;
+  }
+  .soft-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .mini-pulse {
+    display: none;
+  }
+  .floating-card {
+    padding: 10px;
+    gap: 8px;
+  }
+  .consult-floating {
+    bottom: 100px;
+    inset-inline-end: -15px;
+  }
+  .doctor-caption {
+    left: 10px;
+    right: 10px;
+    bottom: 13px;
+    padding: 10px;
+    gap: 8px;
+  }
+  .doctor-caption strong {
+    font-size: 13px;
+  }
+  .doctor-icon {
+    width: 35px;
+    height: 35px;
+  }
+  .care-card {
+    padding: 18px;
+  }
+  .care-card h3 {
+    font-size: 19px;
+  }
+  .care-card > p {
+    font-size: 10px;
+    min-height: 60px;
+  }
+  .care-image {
+    height: 130px;
+  }
+  .care-grid {
+    gap: 14px;
+  }
+  .section-heading h2 {
+    font-size: 24px;
+  }
+  .section-heading > p {
+    max-width: 220px;
+    font-size: 11px;
+  }
+  .section {
+    padding-top: 60px;
+  }
+  .service-card {
+    padding: 18px;
+  }
+  .service-card h3 {
+    font-size: 15px;
+  }
+  .service-card p {
+    font-size: 10px;
+    max-width: 180px;
+  }
+  .service-arrow {
+    bottom: 15px;
+    inset-inline-end: 14px;
+  }
+  .philosophy {
+    padding: 60px 20px 10px;
+  }
+  .philosophy h2 {
+    font-size: 32px;
+  }
+  .about-section {
+    gap: 35px;
+  }
+  .about-visual {
+    height: 350px;
+  }
+  .about-copy h2 {
+    font-size: 25px;
+  }
+  .about-copy > p {
+    font-size: 12px;
+  }
+  .about-values {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .about-badge {
+    left: -10px;
+    padding: 12px;
+  }
+  .about-blue-block {
+    width: 82px;
+    height: 82px;
+  }
+  .steps-grid {
+    gap: 24px;
+  }
+  .step {
+    padding: 25px 13px;
+  }
+  .step h3 {
+    font-size: 14px;
+  }
+  .step:not(:last-child):after {
+    inset-inline-end: -27px;
+    letter-spacing: 3px;
+  }
+  .journal-preview {
+    gap: 10px;
+  }
+  .journal-preview h3 {
+    font-size: 19px;
+  }
+  .journal-preview > div:last-child {
+    padding: 15px;
+  }
+  .faq-section {
+    gap: 35px;
+    grid-template-columns: 0.8fr 1fr;
+    padding-bottom: 60px;
+  }
+  .faq-section h2 {
+    font-size: 25px;
+  }
+  .faq-list summary {
+    font-size: 11px;
+  }
+  .cta-section {
+    padding: 35px;
+  }
+  .cta-section h2 {
+    font-size: 29px;
+  }
+  .footer-main {
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 35px;
+  }
+  .footer-note {
+    display: none;
+  }
+  .made-with {
+    display: none;
+  }
+  .form-layout {
+    grid-template-columns: 1fr 270px;
+    gap: 18px;
+  }
+  .form-panel,
+  .booking-sidebar {
+    padding: 22px;
+  }
+  .service-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-grid {
+    grid-template-columns: 180px 1fr;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  [dir="ltr"] .hero h1 {
+    font-size: 43px;
+  }
+  [dir="ltr"] .care-card h3 {
+    font-size: 17px;
+  }
+}
+@media (max-width: 600px) {
+  .site-shell {
+    padding: 0 18px;
+  }
+  .header {
+    height: 80px;
+    gap: 10px;
+  }
+  .brand {
+    gap: 8px;
+  }
+  .brand strong {
+    font-size: 15px;
+  }
+  .brand small {
+    font-size: 9px;
+  }
+  .brand-symbol {
+    height: 39px;
+    width: 39px;
+    border-radius: 12px;
+  }
+  .brand-symbol svg {
+    width: 25px;
+  }
+  .header-actions {
+    gap: 12px;
+  }
+  .login-link,
+  .nav-divider,
+  .header-actions .button-small {
+    display: none;
+  }
+  .language {
+    font-size: 11px;
+  }
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 30px 25px 35px;
+    gap: 32px;
+    border-radius: 23px;
+  }
+  .hero-copy {
+    padding-top: 0;
+  }
+  .hero-eyebrow {
+    font-size: 10px;
+    margin-bottom: 17px;
+  }
+  .hero h1 {
+    font-size: 48px;
+    line-height: 1.6;
+    margin-bottom: 23px;
+  }
+  .hero-underline {
+    width: 215px;
+    bottom: -2px;
+  }
+  .hero-copy > p {
+    font-size: 12px;
+    max-width: 350px;
+    line-height: 2.1;
+    margin-bottom: 22px;
+  }
+  .hero-buttons {
+    gap: 10px;
+  }
+  .hero-buttons .button {
+    font-size: 11px;
+    padding: 11px 17px;
+    gap: 15px;
+    min-height: 46px;
+  }
+  .hero-trust {
+    flex-direction: row;
+    gap: 20px;
+    margin-top: 23px;
+    font-size: 9px;
+  }
+  .hero-visual {
+    height: 375px;
+    margin: 0 13px 0 0;
+    max-width: 340px;
+    width: calc(100% - 13px);
+    justify-self: center;
+  }
+  .doctor-photo {
+    inset: 0 8px 0 0;
+    border-width: 6px;
+    border-radius: 110px 110px 20px 20px;
+  }
+  .care-floating {
+    top: 30px;
+    inset-inline-start: -26px;
+    padding: 10px 13px;
+  }
+  .consult-floating {
+    bottom: 88px;
+    inset-inline-end: -22px;
+    padding: 11px 13px;
+  }
+  .floating-card strong {
+    font-size: 11px;
+  }
+  .soft-icon {
+    width: 35px;
+    height: 35px;
+  }
+  .doctor-caption strong {
+    font-size: 14px;
+  }
+  .doctor-caption {
+    left: 12px;
+    right: 12px;
+    padding: 11px;
+  }
+  .trust-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 17px 10px;
+    padding: 22px 9px;
+    margin-top: 6px;
+    font-size: 9px;
+  }
+  .trust-strip svg {
+    width: 18px;
+  }
+  .section {
+    padding: 49px 3px 0;
+  }
+  .section-heading {
+    display: block;
+    margin-bottom: 22px;
+  }
+  .section-heading h2 {
+    font-size: 24px;
+    line-height: 1.8;
+  }
+  .section-heading > p {
+    max-width: 100%;
+    margin-top: 10px;
+    font-size: 11px;
+  }
+  .section-heading .text-link {
+    margin-top: 14px;
+    font-size: 11px;
+  }
+  .eyebrow {
+    font-size: 10px;
+  }
+  .care-grid {
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+  .care-card {
+    padding: 23px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 18px;
+    position: relative;
+    min-height: 210px;
+  }
+  .care-top {
+    grid-column: 1;
+    margin-bottom: 9px;
+    position: relative;
+    z-index: 1;
+  }
+  .care-top .round-arrow {
+    display: none;
+  }
+  .care-card h3 {
+    grid-column: 1;
+    font-size: 20px;
+    line-height: 1.7;
+  }
+  .care-card > p {
+    grid-column: 1;
+    font-size: 10px;
+    line-height: 2;
+    min-height: auto;
+    align-self: start;
+  }
+  .care-image {
+    position: absolute;
+    inset-inline-end: 17px;
+    top: 17px;
+    bottom: 17px;
+    width: 42%;
+    height: auto;
+    margin: 0;
+  }
+  .care-image > span {
+    font-size: 8px;
+    gap: 8px;
+    padding: 4px 8px;
+    inset-inline-start: 7px;
+    bottom: 7px;
+  }
+  .care-icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+  .services-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .service-card {
+    padding: 17px 15px 22px;
+    border-radius: 15px;
+  }
+  .service-top {
+    margin-bottom: 15px;
+  }
+  .small-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+  .service-card h3 {
+    font-size: 14px;
+    margin-bottom: 7px;
+  }
+  .service-card p {
+    font-size: 10px;
+    line-height: 1.9;
+    min-height: 57px;
+  }
+  .service-number {
+    font-size: 9px;
+  }
+  .service-arrow {
+    bottom: 10px;
+    inset-inline-end: 12px;
+  }
+  .service-arrow svg {
+    width: 15px;
+  }
+  .philosophy {
+    padding: 48px 10px 0;
+  }
+  .philosophy h2 {
+    font-size: 27px;
+    line-height: 1.95;
+  }
+  .quote-spark {
+    font-size: 45px;
+    inset-inline-end: -38px;
+    top: 16px;
+  }
+  .philosophy > p {
+    font-size: 11px;
+    line-height: 2.3;
+    margin-top: 15px;
+  }
+  .about-section {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding: 43px 8px 0;
+  }
+  .about-visual {
+    height: 370px;
+    max-width: 370px;
+    width: 100%;
+    margin: auto;
+    padding: 0 21px 20px 0;
+  }
+  .about-photo {
+    border-radius: 90px 24px 90px 24px;
+  }
+  .about-badge {
+    left: -4px;
+    bottom: 54px;
+    padding: 13px 15px;
+  }
+  .about-blue-block {
+    width: 84px;
+    height: 84px;
+  }
+  .about-copy h2 {
+    font-size: 28px;
+  }
+  .about-copy > p {
+    font-size: 12px;
+  }
+  .about-values {
+    flex-direction: row;
+    gap: 19px;
+    font-size: 10px;
+  }
+  .center-heading h2 {
+    font-size: 24px;
+  }
+  .center-heading p {
+    font-size: 11px;
+  }
+  .steps-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+    margin-top: 26px;
+  }
+  .step {
+    text-align: start;
+    padding: 22px 19px;
+    display: grid;
+    grid-template-columns: 58px 1fr;
+    gap: 0 17px;
+    align-items: center;
+  }
+  .step-icon {
+    grid-column: 1;
+    grid-row: 1/3;
+    width: 55px;
+    height: 55px;
+    border-radius: 15px;
+    margin: 0;
+  }
+  .step h3 {
+    grid-column: 2;
+    font-size: 15px;
+  }
+  .step p {
+    grid-column: 2;
+    font-size: 10px;
+    margin-top: 4px;
+  }
+  .step-number {
+    top: 4px;
+    inset-inline-start: auto;
+    inset-inline-end: 12px;
+    font-size: 10px;
+  }
+  .step:not(:last-child):after {
+    display: none;
+  }
+  .journal-preview {
+    grid-template-columns: 1fr;
+    padding: 12px;
+    gap: 5px;
+  }
+  .journal-photo {
+    height: 190px;
+  }
+  .journal-preview > div:last-child {
+    padding: 16px 9px;
+  }
+  .journal-preview h3 {
+    font-size: 19px;
+    line-height: 1.9;
+    margin-top: 12px;
+  }
+  .journal-preview p {
+    font-size: 11px;
+  }
+  .faq-section {
+    grid-template-columns: 1fr;
+    gap: 25px;
+    padding-bottom: 48px;
+  }
+  .faq-section h2 {
+    font-size: 25px;
+  }
+  .faq-section > div > p {
+    margin: 8px 0 16px;
+    font-size: 11px;
+  }
+  .faq-list details {
+    padding: 16px 0;
+  }
+  .faq-list summary {
+    font-size: 12px;
+    gap: 10px;
+  }
+  .faq-list details > p {
+    font-size: 11px;
+  }
+  .cta-section {
+    padding: 30px 25px;
+    display: block;
+    border-radius: 21px;
+  }
+  .cta-section h2 {
+    font-size: 28px;
+  }
+  .cta-section p {
+    font-size: 11px;
+    line-height: 2.1;
+  }
+  .cta-section > .button {
+    margin-top: 25px;
+    min-width: 0;
+    font-size: 11px;
+    min-height: 44px;
+    padding: 10px 17px;
+    gap: 23px;
+  }
+  .cta-star {
+    left: 4%;
+    font-size: 120px;
+    top: 25px;
+  }
+  .footer {
+    padding: 42px 5px 0;
+  }
+  .footer-main {
+    grid-template-columns: 1fr 1fr;
+    gap: 30px 25px;
+    padding-bottom: 25px;
+  }
+  .footer-main > div:first-child {
+    grid-column: 1/-1;
+  }
+  .footer-main > div > p {
+    max-width: 290px;
+    font-size: 11px;
+    margin-top: 12px;
+  }
+  .footer-main .brand strong {
+    font-size: 17px;
+  }
+  .footer-main h3 {
+    font-size: 12px;
+    margin-bottom: 13px;
+  }
+  .footer-main > div > a:not(.brand) {
+    font-size: 11px;
+  }
+  .footer-bottom {
+    display: block;
+    font-size: 9px;
+    padding-top: 18px;
+  }
+  .footer-bottom > div {
+    margin-top: 10px;
+    gap: 22px;
+  }
+  .page-banner {
+    padding: 29px 23px;
+    margin-bottom: 24px;
+    border-radius: 20px;
+  }
+  .page-banner h1 {
+    font-size: 27px;
+  }
+  .page-banner p {
+    font-size: 11px;
+    line-height: 2.2;
+  }
+  .page-content {
+    padding: 0 3px 25px;
+  }
+  .form-layout {
+    grid-template-columns: 1fr;
+  }
+  .booking-sidebar {
+    position: static;
+    grid-row: 2;
+  }
+  .form-panel {
+    padding: 21px;
+  }
+  .choice {
+    padding: 13px 10px;
+    gap: 9px;
+  }
+  .choice strong {
+    font-size: 12px;
+  }
+  .choice span {
+    font-size: 9px;
+  }
+  .choice svg {
+    width: 20px;
+  }
+  .two-cols {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .booking-progress {
+    gap: 7px;
+    font-size: 9px;
+    justify-content: center;
+  }
+  .booking-progress > span {
+    gap: 4px;
+  }
+  .booking-progress b {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+  }
+  .login-panel {
+    padding: 27px 23px;
+    margin-top: 25px;
+  }
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-nav {
+    display: flex;
+    overflow: auto;
+    padding: 9px;
+    gap: 5px;
+  }
+  .dashboard-nav a {
+    white-space: nowrap;
+    padding: 9px 12px;
+    font-size: 10px;
+  }
+  .dashboard-title h1 {
+    font-size: 22px;
+  }
+  .stats-grid {
+    gap: 10px;
+  }
+  .stat-card {
+    padding: 17px;
+  }
+  .stat-card span {
+    font-size: 10px;
+  }
+  .content-panel {
+    padding: 23px;
+  }
+  .profile-details {
+    grid-template-columns: 1fr;
+  }
+  .service-detail-grid .booking-sidebar {
+    grid-row: auto;
+  }
+  .empty-state {
+    padding: 35px 20px;
+  }
+  .empty-state h2 {
+    font-size: 20px;
+  }
+  [dir="ltr"] .brand strong {
+    font-size: 14px;
+  }
+  [dir="ltr"] .hero h1 {
+    font-size: 48px;
+    line-height: 1.25;
+    letter-spacing: -1.7px;
+    margin-bottom: 32px;
+  }
+  [dir="ltr"] .hero-underline {
+    bottom: -13px;
+  }
+  [dir="ltr"] .hero-eyebrow {
+    font-size: 9px;
+  }
+  [dir="ltr"] .care-card h3 {
+    font-size: 19px;
+  }
+  [dir="ltr"] .philosophy h2 {
+    font-size: 25px;
+    line-height: 1.7;
+  }
+}
+@media (max-width: 380px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 25px 20px 30px;
+  }
+  .hero-copy {
+    min-width: 0;
+  }
+  .hero h1 {
+    font-size: 40px;
+  }
+  .hero-buttons {
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+  .hero-buttons .button {
+    font-size: 10px;
+    padding: 10px 13px;
+    gap: 10px;
+  }
+  .hero-trust {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .hero-visual {
+    height: 330px;
+    margin: 0;
+    width: 100%;
+  }
+  .care-floating {
+    inset-inline-start: -12px;
+  }
+  .consult-floating {
+    inset-inline-end: -12px;
+  }
+  .philosophy h2 {
+    font-size: 24px;
+  }
+  .quote-spark {
+    inset-inline-end: -20px;
+    font-size: 34px;
+  }
+  .about-values {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .service-card h3 {
+    font-size: 13px;
+  }
+  [dir="ltr"] .hero h1 {
+    font-size: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *:before,
+  *:after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
