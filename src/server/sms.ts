@@ -1,11 +1,38 @@
 import "server-only";
 import { AppError } from "./security";
-export async function sendSms(phone: string, message: string) {
+import { sendMelipayamak } from "@/lib/melipayamak";
+export async function sendSms(
+  phone: string,
+  message: string,
+  otpCode?: string,
+) {
   if (
     process.env.NODE_ENV !== "production" &&
     process.env.SMS_PROVIDER === "development"
   ) {
     return { id: "development-no-delivery" };
+  }
+  if (process.env.SMS_PROVIDER === "melipayamak") {
+    try {
+      return await sendMelipayamak(
+        phone,
+        message,
+        {
+          username: process.env.MELIPAYAMAK_USERNAME,
+          password: process.env.MELIPAYAMAK_PASSWORD,
+          from: process.env.MELIPAYAMAK_FROM,
+          otpBodyId: process.env.MELIPAYAMAK_OTP_BODY_ID,
+        },
+        otpCode,
+      );
+    } catch (error) {
+      const unconfigured =
+        error instanceof Error && error.message === "SMS_NOT_CONFIGURED";
+      throw new AppError(
+        unconfigured ? 503 : 502,
+        unconfigured ? "SMS_NOT_CONFIGURED" : "SMS_DELIVERY_FAILED",
+      );
+    }
   }
   if (!process.env.SMS_API_URL || !process.env.SMS_API_KEY)
     throw new AppError(503, "SMS_NOT_CONFIGURED");

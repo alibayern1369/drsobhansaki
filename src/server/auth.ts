@@ -44,6 +44,7 @@ export async function requestOtp(phone: string) {
     await sendSms(
       phone,
       `کد ورود شما: ${code}\nاین کد را در اختیار دیگران نگذارید.`,
+      code,
     );
   } catch (e) {
     await db
