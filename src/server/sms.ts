@@ -1,11 +1,20 @@
 import "server-only";
 import { AppError } from "./security";
 import { sendMelipayamak } from "@/lib/melipayamak";
+import { storedSmsSettings } from "./integration-settings";
 export async function sendSms(
   phone: string,
   message: string,
   otpCode?: string,
 ) {
+  const saved = process.env.DATABASE_URL ? await storedSmsSettings() : null;
+  if (saved) {
+    try {
+      return await sendMelipayamak(phone, message, saved, otpCode);
+    } catch {
+      throw new AppError(502, "SMS_DELIVERY_FAILED");
+    }
+  }
   if (
     process.env.NODE_ENV !== "production" &&
     process.env.SMS_PROVIDER === "development"

@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
-import { sessions, rateLimits, auditLogs } from "@/db/schema";
+import { sessions, rateLimits, auditLogs, adminCredentials } from "@/db/schema";
 import { AppError, hash, rateLimit, requireUser } from "./security";
 function decodeBase32(input: string) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -17,6 +17,15 @@ function decodeBase32(input: string) {
 }
 export async function verifyMfa(code: string) {
   const user = await requireUser();
+  const [credential] = await getDb()
+    .select({ userId: adminCredentials.userId })
+    .from(adminCredentials)
+    .where(eq(adminCredentials.userId, user.id));
+  if (credential) {
+    const { adminAccess } = await import("./admin-access");
+    await adminAccess("verify", "POST", { method: "totp", code });
+    return;
+  }
   if (!["doctor", "super_admin", "staff"].includes(user.role))
     throw new AppError(403, "FORBIDDEN");
   const secrets: Record<string, string> = JSON.parse(

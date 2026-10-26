@@ -22,6 +22,13 @@
       "when": 1792951927282,
       "tag": "0002_colossal_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792955379294,
+      "tag": "0003_marvelous_brother_voodoo",
+      "breakpoints": true
     }
   ]
 }

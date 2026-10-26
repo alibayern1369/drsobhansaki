@@ -3,7 +3,8 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { and, eq, gt, sql } from "drizzle-orm";
 import { getDb } from "@/db";
-import { rateLimits, sessions, users } from "@/db/schema";
+import { adminCredentials, rateLimits, sessions, users } from "@/db/schema";
+import { effectiveAdminVerification } from "@/lib/admin-crypto";
 export class AppError extends Error {
   constructor(
     public status: number,
@@ -24,9 +25,18 @@ export async function currentUser() {
   const token = (await cookies()).get("medical_session")?.value;
   if (!token) return null;
   const [row] = await getDb()
-    .select({ user: users, mfaVerifiedAt: sessions.mfaVerifiedAt })
+    .select({
+      user: users,
+      mfaVerifiedAt: sessions.mfaVerifiedAt,
+      passwordVerified: sessions.adminPasswordVerified,
+      credential: {
+        smsEnabled: adminCredentials.smsEnabled,
+        totpEnabled: adminCredentials.totpEnabled,
+      },
+    })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
+    .leftJoin(adminCredentials, eq(adminCredentials.userId, users.id))
     .where(
       and(
         eq(sessions.tokenHash, hash(token)),
@@ -35,7 +45,16 @@ export async function currentUser() {
       ),
     )
     .limit(1);
-  return row ?? null;
+  return row
+    ? {
+        ...row,
+        mfaVerifiedAt: effectiveAdminVerification(
+          row.passwordVerified,
+          row.credential,
+          row.mfaVerifiedAt,
+        ),
+      }
+    : null;
 }
 export async function requireUser(admin = false) {
   const auth = await currentUser();
@@ -49,12 +68,20 @@ export async function requireUser(admin = false) {
     throw new AppError(403, "ADMIN_MFA_REQUIRED");
   return auth.user;
 }
-export async function createSession(userId: string) {
+export async function createSession(
+  userId: string,
+  adminPasswordVerified = false,
+) {
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 7 * 86400000);
   await getDb()
     .insert(sessions)
-    .values({ userId, tokenHash: hash(token), expiresAt: expires });
+    .values({
+      userId,
+      tokenHash: hash(token),
+      expiresAt: expires,
+      adminPasswordVerified,
+    });
   (await cookies()).set("medical_session", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

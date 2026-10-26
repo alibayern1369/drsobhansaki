@@ -4,6 +4,8 @@ import { type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
 import { AdminOperations } from "./admin-operations";
 import { AdminAppointmentActions } from "./admin-appointment-actions";
+import { AdminChallenge } from "./admin-login";
+import { AdminSecuritySettings } from "./admin-security-settings";
 import { ReceiptStorageSettings } from "./receipt-storage-settings";
 type AdminData = {
   appointments: Array<{
@@ -38,9 +40,11 @@ type AdminData = {
 export function AdminPanel({
   locale,
   mfaRequired,
+  passwordLogin = false,
 }: {
   locale: Locale;
   mfaRequired: boolean;
+  passwordLogin?: boolean;
 }) {
   const fa = locale === "fa";
   const [tab, setTab] = useState("overview");
@@ -93,6 +97,7 @@ export function AdminPanel({
     }
   }
   const tabs: [string, string, string, IconName][] = [
+    ["security-login", "امنیت و ورود", "Login security", "lock"],
     ["overview", "نمای کلی", "Overview", "dashboard"],
     [
       "appointments",
@@ -115,6 +120,7 @@ export function AdminPanel({
     ["settings", "تنظیمات سامانه", "System settings", "settings"],
     ["receipt-storage", "رسیدها و نگهداری", "Receipts & retention", "shield"],
   ];
+  if (mfa && passwordLogin) return <AdminChallenge locale={locale} />;
   if (mfa)
     return (
       <form
@@ -216,6 +222,10 @@ export function AdminPanel({
           </div>
         ) : (
           <>
+            {tab === "security-login" && (
+              <AdminSecuritySettings locale={locale} />
+            )}
+            {tab === "sms" && <AdminSecuritySettings locale={locale} onlySms />}
             {tab === "overview" && (
               <>
                 <div className="stats-grid">

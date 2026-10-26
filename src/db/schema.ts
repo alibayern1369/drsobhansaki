@@ -66,10 +66,40 @@ export const sessions = pgTable(
     tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     mfaVerifiedAt: timestamp("mfa_verified_at", { withTimezone: true }),
+    adminPasswordVerified: boolean("admin_password_verified")
+      .default(false)
+      .notNull(),
     createdAt: created(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
+export const adminCredentials = pgTable("admin_credentials", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  username: varchar("username", { length: 64 }).notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  smsEnabled: boolean("sms_enabled").default(false).notNull(),
+  totpEnabled: boolean("totp_enabled").default(false).notNull(),
+  totpSecret: text("totp_secret"),
+  pendingTotpSecret: text("pending_totp_secret"),
+  updatedAt: updated(),
+});
+export const integrationSecrets = pgTable("integration_secrets", {
+  key: text("key").primaryKey(),
+  ciphertext: text("ciphertext").notNull(),
+  updatedAt: updated(),
+});
+export const adminMfaChallenges = pgTable("admin_mfa_challenges", {
+  sessionHash: text("session_hash").primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  codeHash: text("code_hash").notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+});
 export const otpChallenges = pgTable(
   "otp_challenges",
   {
