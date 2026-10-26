@@ -1,9 +1,10 @@
 import "server-only";
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
 import { AppError } from "./security";
+import { normalizeDigits } from "@/lib/admin-labels";
 const uuid = z.uuid();
 type User = { id: string; role: string };
 export async function adminOperations(
@@ -92,6 +93,76 @@ export async function adminOperations(
       blocked: await db.select().from(s.blockedDates),
       types: await db.select().from(s.consultationTypes),
     });
+  if (key === "blocked-dates" && method === "PUT" && path[2]) {
+    privileged();
+    const id = uuid.parse(path[2]);
+    z.object({ remove: z.literal(true) }).parse(await request.json());
+    await db.transaction(async (tx) => {
+      await tx.delete(s.blockedDates).where(eq(s.blockedDates.id, id));
+      await tx.insert(s.auditLogs).values({
+        actorId: user.id,
+        action: "calendar.unblock",
+        entityType: "blocked_date",
+        entityId: id,
+      });
+    });
+    return json({ ok: true });
+  }
+  if (key === "slot-batch" && method === "POST") {
+    privileged();
+    const input = z
+      .object({
+        consultationTypeId: uuid,
+        date: z.iso.date(),
+        startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      })
+      .refine((v) => v.endTime > v.startTime)
+      .parse(await request.json());
+    const [type] = await db
+      .select()
+      .from(s.consultationTypes)
+      .where(eq(s.consultationTypes.id, input.consultationTypeId));
+    if (!type) throw new AppError(404, "NOT_FOUND");
+    const start = new Date(`${input.date}T${input.startTime}:00+03:30`);
+    const end = new Date(`${input.date}T${input.endTime}:00+03:30`);
+    if (start <= new Date()) throw new AppError(400, "INVALID_INPUT");
+    const slots: Array<{
+      consultationTypeId: string;
+      startsAt: Date;
+      endsAt: Date;
+    }> = [];
+    for (
+      let time = start.getTime();
+      time + type.durationMinutes * 60000 <= end.getTime();
+      time += (type.durationMinutes + type.bufferMinutes) * 60000
+    )
+      slots.push({
+        consultationTypeId: type.id,
+        startsAt: new Date(time),
+        endsAt: new Date(time + type.durationMinutes * 60000),
+      });
+    if (!slots.length || slots.length > 288)
+      throw new AppError(400, "INVALID_INPUT");
+    const count = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext('doctor-schedule'))`,
+      );
+      const added = await tx
+        .insert(s.appointmentSlots)
+        .values(slots)
+        .onConflictDoNothing()
+        .returning({ id: s.appointmentSlots.id });
+      await tx.insert(s.auditLogs).values({
+        actorId: user.id,
+        action: "calendar.generate",
+        entityType: "calendar",
+        metadata: { count: added.length, date: input.date },
+      });
+      return added.length;
+    });
+    return json({ ok: true, count }, 201);
+  }
   if (key === "availability" && method === "POST") {
     privileged();
     const data = z
@@ -237,7 +308,10 @@ export async function adminOperations(
       .object({
         bankName: z.string().min(2).max(100),
         holderName: z.string().min(3).max(100),
-        cardNumber: z.string().regex(/^\d{16}$/),
+        cardNumber: z
+          .string()
+          .transform((v) => normalizeDigits(v).replace(/[\s-]/g, ""))
+          .pipe(z.string().regex(/^\d{16}$/)),
         enabled: z.boolean(),
         sortOrder: z.number().int().min(0).max(100),
       })
@@ -313,10 +387,70 @@ export async function adminOperations(
   if (key === "appointment-requests" && method === "GET")
     return json(
       await db
-        .select()
+        .select({
+          id: s.appointmentRequests.id,
+          appointmentId: s.appointmentRequests.appointmentId,
+          kind: s.appointmentRequests.kind,
+          status: s.appointmentRequests.status,
+          createdAt: s.appointmentRequests.createdAt,
+          trackingCode: s.appointments.trackingCode,
+          name: s.users.name,
+          phone: s.users.phone,
+        })
         .from(s.appointmentRequests)
+        .innerJoin(
+          s.appointments,
+          eq(s.appointments.id, s.appointmentRequests.appointmentId),
+        )
+        .innerJoin(s.users, eq(s.users.id, s.appointmentRequests.patientId))
         .where(eq(s.appointmentRequests.status, "pending"))
         .limit(100),
     );
+  if (key === "appointment-requests" && method === "PUT" && path[2]) {
+    privileged();
+    const id = uuid.parse(path[2]);
+    const data = z
+      .object({ status: z.enum(["resolved", "rejected"]) })
+      .parse(await request.json());
+    await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(s.appointmentRequests)
+        .set(data)
+        .where(
+          and(
+            eq(s.appointmentRequests.id, id),
+            eq(s.appointmentRequests.status, "pending"),
+          ),
+        )
+        .returning();
+      if (!row) throw new AppError(404, "NOT_FOUND");
+      await tx.insert(s.auditLogs).values({
+        actorId: user.id,
+        action: "appointment.request_review",
+        entityType: "appointment",
+        entityId: row.appointmentId,
+        metadata: { requestId: id, status: data.status },
+      });
+    });
+    return json({ ok: true });
+  }
+  if (key === "articles" && method === "PUT" && path[2]) {
+    privileged();
+    const id = uuid.parse(path[2]);
+    z.object({ status: z.literal("draft") }).parse(await request.json());
+    await db.transaction(async (tx) => {
+      await tx
+        .update(s.articles)
+        .set({ status: "draft", updatedAt: new Date() })
+        .where(eq(s.articles.id, id));
+      await tx.insert(s.auditLogs).values({
+        actorId: user.id,
+        action: "article.unpublish",
+        entityType: "article",
+        entityId: id,
+      });
+    });
+    return json({ ok: true });
+  }
   return null;
 }

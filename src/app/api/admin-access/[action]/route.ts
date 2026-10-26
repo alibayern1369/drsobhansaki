@@ -42,6 +42,10 @@ async function handle(
           : 503;
     const fa = !request.headers.get("accept-language")?.startsWith("en");
     const messages: Record<string, [string, string]> = {
+      ACCOUNT_EXISTS: [
+        "این شماره قبلاً حساب مدیریت دارد؛ رمز از بخش امنیت همان حساب تغییر می‌کند.",
+        "This administrator account already exists. Change its password under its security settings.",
+      ],
       INVALID_CREDENTIALS: [
         "نام کاربری یا رمز عبور صحیح نیست.",
         "Invalid username or password.",

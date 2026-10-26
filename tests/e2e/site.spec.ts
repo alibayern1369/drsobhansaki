@@ -8,7 +8,7 @@ test("Persian homepage uses RTL and renders the real design", async ({
   await expect(page.getByRole("heading", { level: 1 })).toContainText(
     "حال خوب شما",
   );
-  await expect(page.locator(".service-card")).toHaveCount(6);
+  await expect(page.locator(".services-section .service-card")).toHaveCount(6);
   await expect(page.locator(".doctor-photo img")).toBeVisible();
 });
 test("English homepage uses LTR and language switch preserves page", async ({
@@ -63,7 +63,9 @@ test("unconfigured OTP displays a real service error", async ({ page }) => {
 test("private dashboard and admin require sign in", async ({ page }) => {
   for (const path of ["/fa/admin", "/fa/dashboard"]) {
     await page.goto(path);
-    await expect(page.getByLabel("شماره همراه")).toBeVisible();
+    await expect(
+      page.getByLabel(path.endsWith("/admin") ? "نام کاربری" : "شماره همراه"),
+    ).toBeVisible();
     await expect(page.getByText("وضعیت پرداخت", { exact: true })).toHaveCount(
       0,
     );

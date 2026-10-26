@@ -2,13 +2,21 @@ import Link from "next/link";
 import { copy, type Locale } from "@/lib/content";
 import { Brand } from "./header";
 import { Icon } from "./icon";
-export function Footer({ locale }: { locale: Locale }) {
-  const t = copy[locale];
+export function Footer({
+  locale,
+  content,
+  phone,
+}: {
+  locale: Locale;
+  content?: (typeof copy)[Locale];
+  phone?: string;
+}) {
+  const t = content || copy[locale];
   return (
     <footer className="footer">
       <div className="footer-main">
         <div>
-          <Brand locale={locale} />
+          <Brand locale={locale} content={t} />
           <p>{t.footerDesc}</p>
           <div className="socials">
             {(["message", "send", "phone"] as const).map((icon) => (
@@ -31,7 +39,7 @@ export function Footer({ locale }: { locale: Locale }) {
         </div>
         <div>
           <h3>{t.connection}</h3>
-          <p>{t.infoPending}</p>
+          <p>{phone || t.infoPending}</p>
           <Link href={`/${locale}/contact`}>
             {t.contact}
             <Icon name="arrow" size={15} />

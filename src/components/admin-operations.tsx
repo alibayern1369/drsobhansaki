@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 import { Icon } from "./icon";
+import { adminLabel, normalizeDigits } from "@/lib/admin-labels";
+import { AdminAccountCreator } from "./admin-account-creator";
 type Row = Record<string, string | number | boolean | null>;
 type Collection = {
   slots?: Row[];
@@ -18,15 +20,20 @@ type Collection = {
 export function AdminOperations({
   tab,
   locale,
+  canManage = true,
+  currentUserId,
 }: {
   tab: string;
   locale: Locale;
+  canManage?: boolean;
+  currentUserId?: string;
 }) {
   const fa = locale === "fa";
   const [data, setData] = useState<Row[] | Collection | null>(null);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
+  const [smsKey, setSmsKey] = useState("booking_submitted");
   const endpoint = tab === "articles" ? "article-list" : tab;
   useEffect(() => {
     let active = true;
@@ -58,13 +65,23 @@ export function AdminOperations({
       });
       const d = await r.json();
       if (!r.ok) throw new Error(d.message);
-      setMessage(fa ? "ذخیره شد." : "Saved.");
+      setMessage(
+        typeof d.count === "number"
+          ? fa
+            ? `${d.count} زمان جدید ساخته شد؛ زمان‌های تکراری اضافه نشدند.`
+            : `Created ${d.count} new times; duplicates skipped.`
+          : fa
+            ? "ذخیره شد."
+            : "Saved.",
+      );
       const reload = await fetch(`/api/admin/${endpoint}`, {
         headers: { "Accept-Language": locale },
       });
       if (reload.ok) setData(await reload.json());
+      return true;
     } catch (e) {
       setMessage((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -79,9 +96,70 @@ export function AdminOperations({
         </div>
       )}
       {!data ? (
-        <p>{fa ? "در حال دریافت اطلاعات…" : "Loading data…"}</p>
+        <p>
+          {message
+            ? fa
+              ? "دریافت اطلاعات انجام نشد. دوباره وارد این بخش شوید."
+              : "Unable to load data. Reopen this section."
+            : fa
+              ? "در حال دریافت اطلاعات…"
+              : "Loading data…"}
+        </p>
       ) : (
         <>
+          {tab === "appointment-requests" && (
+            <>
+              <p>
+                {fa
+                  ? "ابتدا لغو یا تغییر زمان را در بخش نوبت‌ها انجام دهید، سپس درخواست را رسیدگی‌شده علامت بزنید. بستن درخواست، وضعیت خود نوبت را تغییر نمی‌دهد."
+                  : "Handle cancellation or rescheduling under Appointments first, then close the request. Closing does not change the appointment."}
+              </p>
+              {!rows.length && (
+                <p>
+                  {fa
+                    ? "درخواست بررسی‌نشده‌ای وجود ندارد."
+                    : "No pending requests."}
+                </p>
+              )}
+              {rows.map((row) => (
+                <div className="content-panel" key={String(row.id)}>
+                  <h3>{adminLabel(row.kind, fa)}</h3>
+                  <p>{row.name || row.phone}</p>
+                  <p dir="ltr">{row.trackingCode}</p>
+                  <time>
+                    {new Date(String(row.createdAt)).toLocaleString(
+                      fa ? "fa-IR" : "en-US",
+                      { timeZone: "Asia/Tehran" },
+                    )}
+                  </time>
+                  <div className="admin-actions">
+                    <button
+                      className="button button-small"
+                      disabled={busy}
+                      onClick={() =>
+                        void save(`appointment-requests/${row.id}`, {
+                          status: "resolved",
+                        })
+                      }
+                    >
+                      {fa ? "رسیدگی انجام شد" : "Mark handled"}
+                    </button>
+                    <button
+                      className="button button-white button-small"
+                      disabled={busy}
+                      onClick={() =>
+                        void save(`appointment-requests/${row.id}`, {
+                          status: "rejected",
+                        })
+                      }
+                    >
+                      {fa ? "رد درخواست" : "Decline request"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
           {tab === "patients" && (
             <>
               <div className="field">
@@ -128,6 +206,13 @@ export function AdminOperations({
           )}
           {tab === "roles" && (
             <>
+              <AdminAccountCreator
+                locale={locale}
+                onCreated={async () => {
+                  const response = await fetch("/api/admin/roles");
+                  if (response.ok) setData(await response.json());
+                }}
+              />
               {rows.map((r) => (
                 <form
                   className="content-panel"
@@ -150,6 +235,7 @@ export function AdminOperations({
                     <select
                       id={`role-${r.id}`}
                       name="role"
+                      disabled={r.id === currentUserId}
                       defaultValue={String(r.role)}
                     >
                       {[
@@ -168,11 +254,15 @@ export function AdminOperations({
                     <input
                       type="checkbox"
                       name="disabled"
+                      disabled={r.id === currentUserId}
                       defaultChecked={!!r.disabled}
                     />
                     {fa ? "غیرفعال کردن حساب" : "Disable account"}
                   </label>
-                  <button className="button button-small" disabled={busy}>
+                  <button
+                    className="button button-small"
+                    disabled={busy || r.id === currentUserId}
+                  >
                     {fa
                       ? "ذخیره و لغو نشست‌های قبلی"
                       : "Save & revoke existing sessions"}
@@ -184,7 +274,72 @@ export function AdminOperations({
           {tab === "calendar" && collection && (
             <>
               <form
+                hidden={!canManage}
                 className="content-panel"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const f = new FormData(e.currentTarget);
+                  void save(
+                    "slot-batch",
+                    {
+                      consultationTypeId: f.get("type"),
+                      date: f.get("date"),
+                      startTime: f.get("start"),
+                      endTime: f.get("end"),
+                    },
+                    "POST",
+                  );
+                }}
+              >
+                <h2>
+                  {fa
+                    ? "ساخت خودکار زمان‌های یک روز"
+                    : "Generate a day of appointments"}
+                </h2>
+                <p>
+                  {fa
+                    ? "بازهٔ کاری را وارد کنید؛ زمان‌ها با مدت مشاوره و فاصلهٔ بین نوبت‌ها ساخته می‌شوند. تاریخ بر اساس تقویم میلادی و ساعت تهران است."
+                    : "Times use the consultation duration and buffer, in Tehran time."}
+                </p>
+                <div className="field">
+                  <label htmlFor="batch-type">
+                    {fa ? "نوع مشاوره" : "Consultation"}
+                  </label>
+                  <select id="batch-type" name="type" required>
+                    {collection.types?.map((t) => (
+                      <option key={String(t.id)} value={String(t.id)}>
+                        {adminLabel(t.key, fa)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="batch-date">{fa ? "تاریخ" : "Date"}</label>
+                  <input id="batch-date" name="date" type="date" required />
+                </div>
+                <div className="two-cols">
+                  {["start", "end"].map((k, i) => (
+                    <div className="field" key={k}>
+                      <label htmlFor={`batch-${k}`}>
+                        {fa
+                          ? i
+                            ? "پایان کار"
+                            : "شروع کار"
+                          : i
+                            ? "End"
+                            : "Start"}
+                      </label>
+                      <input id={`batch-${k}`} name={k} type="time" required />
+                    </div>
+                  ))}
+                </div>
+                <button className="button button-small" disabled={busy}>
+                  {fa ? "ساخت زمان‌های قابل رزرو" : "Generate bookable times"}
+                </button>
+              </form>
+              <form
+                className="content-panel"
+                hidden={!canManage}
                 onSubmit={(e) => {
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
@@ -241,6 +396,7 @@ export function AdminOperations({
               <form
                 className="content-panel"
                 style={{ marginTop: 20 }}
+                hidden={!canManage}
                 onSubmit={(e) => {
                   e.preventDefault();
                   const f = new FormData(e.currentTarget);
@@ -292,6 +448,13 @@ export function AdminOperations({
               <h2 style={{ fontSize: 21, margin: "25px 0 15px" }}>
                 {fa ? "زمان‌های آینده" : "Upcoming times"}
               </h2>
+              {!collection.slots?.length && (
+                <p>
+                  {fa
+                    ? "زمانی تعریف نشده است. از فرم بالا زمان اضافه کنید."
+                    : "No times yet. Add times above."}
+                </p>
+              )}
               {collection.slots?.map((s) => (
                 <div className="summary-line" key={String(s.id)}>
                   <strong>
@@ -303,7 +466,7 @@ export function AdminOperations({
                   <button
                     className="text-link"
                     style={{ background: "none" }}
-                    disabled={busy}
+                    disabled={busy || !canManage}
                     onClick={() =>
                       save(`slots/${s.id}`, { enabled: !s.enabled })
                     }
@@ -315,6 +478,36 @@ export function AdminOperations({
                       : fa
                         ? "فعال کردن"
                         : "Enable"}
+                  </button>
+                </div>
+              ))}
+              <h2>{fa ? "تعطیلی‌ها و بازه‌های مسدود" : "Blocked periods"}</h2>
+              {!collection.blocked?.length && (
+                <p>{fa ? "تعطیلی ثبت نشده است." : "No blocked periods."}</p>
+              )}
+              {collection.blocked?.map((row) => (
+                <div className="summary-line" key={String(row.id)}>
+                  <span>
+                    {new Date(String(row.startsAt)).toLocaleString(
+                      fa ? "fa-IR" : "en-US",
+                      { timeZone: "Asia/Tehran" },
+                    )}{" "}
+                    —{" "}
+                    {new Date(String(row.endsAt)).toLocaleString(
+                      fa ? "fa-IR" : "en-US",
+                      { timeZone: "Asia/Tehran" },
+                    )}
+                    <br />
+                    {row.reason}
+                  </span>
+                  <button
+                    className="text-link"
+                    disabled={busy || !canManage}
+                    onClick={() =>
+                      void save(`blocked-dates/${row.id}`, { remove: true })
+                    }
+                  >
+                    {fa ? "حذف تعطیلی" : "Remove block"}
                   </button>
                 </div>
               ))}
@@ -342,7 +535,12 @@ export function AdminOperations({
                 </div>
                 <div className="field">
                   <label htmlFor="sms-key">{fa ? "رویداد" : "Event"}</label>
-                  <select id="sms-key" name="key">
+                  <select
+                    id="sms-key"
+                    name="key"
+                    value={smsKey}
+                    onChange={(e) => setSmsKey(e.target.value)}
+                  >
                     {[
                       "booking_submitted",
                       "receipt_submitted",
@@ -353,7 +551,9 @@ export function AdminOperations({
                       "appointment_cancelled",
                       "appointment_reminder",
                     ].map((v) => (
-                      <option key={v}>{v}</option>
+                      <option key={v} value={v}>
+                        {adminLabel(v, fa)}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -363,6 +563,11 @@ export function AdminOperations({
                       {l === "fa" ? "متن فارسی" : "English text"}
                     </label>
                     <textarea
+                      key={`${smsKey}-${l}-${collection.templates?.find((t) => t.key === smsKey)?.content[l] || ""}`}
+                      defaultValue={
+                        collection.templates?.find((t) => t.key === smsKey)
+                          ?.content[l] || ""
+                      }
                       id={`sms-${l}`}
                       name={l}
                       dir={l === "fa" ? "rtl" : "ltr"}
@@ -372,7 +577,15 @@ export function AdminOperations({
                   </div>
                 ))}
                 <label className="checkbox">
-                  <input type="checkbox" name="enabled" defaultChecked />
+                  <input
+                    key={`${smsKey}-${collection.templates?.find((t) => t.key === smsKey)?.enabled}`}
+                    type="checkbox"
+                    name="enabled"
+                    defaultChecked={
+                      collection.templates?.find((t) => t.key === smsKey)
+                        ?.enabled ?? true
+                    }
+                  />
                   {fa ? "فعال" : "Enabled"}
                 </label>
                 <button className="button button-small" disabled={busy}>
@@ -385,7 +598,8 @@ export function AdminOperations({
               {collection.deliveries?.map((n) => (
                 <div key={String(n.id)} className="summary-line">
                   <span>
-                    {n.event} · {n.status} · {n.attempts}
+                    {adminLabel(n.event, fa)} · {adminLabel(n.status, fa)} ·{" "}
+                    {n.attempts}
                   </span>
                   {n.status === "failed" && (
                     <button
@@ -404,7 +618,7 @@ export function AdminOperations({
               </h2>
               {collection.templates?.map((t) => (
                 <details className="article-draft" key={t.key}>
-                  <summary>{t.key}</summary>
+                  <summary>{adminLabel(t.key, fa)}</summary>
                   <p>{t.content.fa}</p>
                   <p dir="ltr">{t.content.en}</p>
                 </details>
@@ -433,9 +647,72 @@ export function AdminOperations({
             rows.map((a) => (
               <div className="article-draft" key={`${a.id}-${a.locale}`}>
                 <span className="pill">
-                  {a.status} · {a.locale}
+                  {adminLabel(a.status, fa)} ·{" "}
+                  {a.locale === "fa" ? "فارسی" : "English"}
                 </span>
                 <h3>{a.title}</h3>
+                <details>
+                  <summary>{fa ? "ویرایش مقاله" : "Edit article"}</summary>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const f = new FormData(e.currentTarget);
+                      void save(
+                        "articles",
+                        {
+                          slug: a.slug,
+                          locale: a.locale,
+                          title: f.get("title"),
+                          description: f.get("description"),
+                          body: f.get("body"),
+                        },
+                        "POST",
+                      );
+                    }}
+                  >
+                    {["title", "description", "body"].map((key, i) => (
+                      <div className="field" key={key}>
+                        <label htmlFor={`edit-${a.id}-${a.locale}-${key}`}>
+                          {
+                            (fa
+                              ? ["عنوان", "توضیح جستجو", "متن مقاله"]
+                              : ["Title", "Description", "Body"])[i]
+                          }
+                        </label>
+                        <textarea
+                          id={`edit-${a.id}-${a.locale}-${key}`}
+                          name={key}
+                          defaultValue={String(a[key] || "")}
+                          required={key !== "description"}
+                          minLength={
+                            key === "body" ? 20 : key === "title" ? 3 : 0
+                          }
+                          maxLength={
+                            key === "body"
+                              ? 100000
+                              : key === "title"
+                                ? 200
+                                : 300
+                          }
+                        />
+                      </div>
+                    ))}
+                    <button className="button button-small" disabled={busy}>
+                      {fa ? "ذخیره به‌صورت پیش‌نویس" : "Save as draft"}
+                    </button>
+                  </form>
+                </details>
+                {a.status === "published" && (
+                  <button
+                    className="text-link"
+                    disabled={busy}
+                    onClick={() =>
+                      void save(`articles/${a.id}`, { status: "draft" })
+                    }
+                  >
+                    {fa ? "توقف انتشار" : "Unpublish"}
+                  </button>
+                )}
                 <details>
                   <summary>{fa ? "بررسی متن" : "Review content"}</summary>
                   <div
@@ -448,7 +725,7 @@ export function AdminOperations({
                     {a.body}
                   </div>
                 </details>
-                {!a.approvedAt && (
+                {(!a.approvedAt || a.status !== "published") && (
                   <button
                     className="button button-small"
                     style={{ marginTop: 15 }}
@@ -489,23 +766,28 @@ function BankEditor({
   locale: Locale;
   busy: boolean;
   initial?: Row;
-  onSave: (v: unknown) => void;
+  onSave: (v: unknown) => Promise<boolean>;
 }) {
   const fa = locale === "fa";
   return (
     <form
       className="content-panel"
       style={{ marginBottom: 20 }}
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        const f = new FormData(e.currentTarget);
-        onSave({
+        const form = e.currentTarget;
+        const f = new FormData(form);
+        const saved = await onSave({
           bankName: f.get("bankName"),
           holderName: f.get("holderName"),
-          cardNumber: f.get("cardNumber"),
+          cardNumber: normalizeDigits(String(f.get("cardNumber"))).replace(
+            /[\s-]/g,
+            "",
+          ),
           enabled: f.get("enabled") === "on",
           sortOrder: Number(f.get("sortOrder")),
         });
+        if (saved && !initial) form.reset();
       }}
     >
       <h2>
@@ -533,7 +815,8 @@ function BankEditor({
             )}
             required
             type={key === "sortOrder" ? "number" : "text"}
-            pattern={key === "cardNumber" ? "[0-9]{16}" : undefined}
+            pattern={key === "cardNumber" ? "[0-9۰-۹٠-٩ -]{16,24}" : undefined}
+            inputMode={key === "cardNumber" ? "numeric" : undefined}
             dir={key === "cardNumber" ? "ltr" : undefined}
           />
         </div>

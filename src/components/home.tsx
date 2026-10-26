@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { siteAsset } from "@/lib/site-assets";
 import Link from "next/link";
 import { copy, faqs, services, type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
@@ -6,9 +7,18 @@ import { Reveal } from "./reveal";
 export function Home({
   locale,
   content,
+  branding,
+  articles = [],
 }: {
   locale: Locale;
   content?: (typeof copy)[Locale];
+  branding?: Record<string, unknown> | null;
+  articles?: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    description: string | null;
+  }>;
 }) {
   const t = content || copy[locale];
   const fa = locale === "fa";
@@ -71,7 +81,8 @@ export function Home({
         <div className="hero-visual">
           <div className="doctor-photo">
             <Image
-              src="/images/doctor.jpg"
+              src={siteAsset(branding?.doctorImageUrl, "/images/doctor.jpg")}
+              unoptimized={!!branding?.doctorImageUrl}
               alt={t.stock}
               fill
               priority
@@ -79,7 +90,11 @@ export function Home({
             />
             <div className="photo-gradient" />
             <span className="photo-label">
-              {fa ? "تصویر نمایشی" : "Illustrative image"}
+              {branding?.doctorImageUrl
+                ? t.name
+                : fa
+                  ? "تصویر نمایشی"
+                  : "Illustrative image"}
             </span>
             <div className="doctor-caption">
               <span className="doctor-icon">
@@ -169,21 +184,24 @@ export function Home({
               icon: "phone",
               title: t.phone,
               desc: t.phoneDesc,
-              img: "/images/consultation.jpg",
+              img: siteAsset(
+                branding?.consultationImageUrl,
+                "/images/consultation.jpg",
+              ),
               query: "phone",
             },
             {
               icon: "message",
               title: t.text,
               desc: t.textDesc,
-              img: "/images/medical.jpg",
+              img: siteAsset(branding?.medicalImageUrl, "/images/medical.jpg"),
               query: "text",
             },
             {
               icon: "calendar",
               title: t.appointment,
               desc: t.appointmentDesc,
-              img: "/images/doctor.jpg",
+              img: siteAsset(branding?.doctorImageUrl, "/images/doctor.jpg"),
               query: "phone",
             },
           ].map((card, i) => (
@@ -205,6 +223,7 @@ export function Home({
               <div className="care-image">
                 <Image
                   src={card.img}
+                  unoptimized
                   alt=""
                   fill
                   sizes="(max-width:700px) 90vw, 30vw"
@@ -272,13 +291,18 @@ export function Home({
         <div className="about-visual">
           <div className="about-photo">
             <Image
-              src="/images/doctor.jpg"
+              src={siteAsset(branding?.doctorImageUrl, "/images/doctor.jpg")}
+              unoptimized={!!branding?.doctorImageUrl}
               alt={t.stock}
               fill
               sizes="(max-width:700px) 90vw, 45vw"
             />
             <span className="photo-label">
-              {fa ? "تصویر نمایشی" : "Illustrative image"}
+              {branding?.doctorImageUrl
+                ? t.name
+                : fa
+                  ? "تصویر نمایشی"
+                  : "Illustrative image"}
             </span>
           </div>
           <div className="about-blue-block">
@@ -372,28 +396,50 @@ export function Home({
             <Icon name="arrow" size={18} />
           </Link>
         </div>
-        <div className="journal-preview">
-          <div className="journal-photo">
-            <Image
-              src="/images/medical.jpg"
-              alt=""
-              fill
-              sizes="(max-width:700px) 90vw, 40vw"
-            />
+        {articles.length > 0 ? (
+          <div className="services-grid">
+            {articles.slice(0, 3).map((article) => (
+              <Link
+                className="service-card"
+                key={article.id}
+                href={`/${locale}/articles/${article.slug}`}
+              >
+                <span className="eyebrow">
+                  {fa ? "مقاله تأییدشده" : "REVIEWED ARTICLE"}
+                </span>
+                <h3>{article.title}</h3>
+                <p>{article.description}</p>
+              </Link>
+            ))}
           </div>
-          <div>
-            <span className="pill">
-              <Icon name="file" size={14} />
-              {fa ? "در انتظار بررسی علمی" : "AWAITING MEDICAL REVIEW"}
-            </span>
-            <h3>{t.journalEmpty}</h3>
-            <p>{t.journalEmptyDesc}</p>
-            <Link href={`/${locale}/articles`} className="text-link">
-              {fa ? "درباره مجله سلامت" : "About the health journal"}
-              <Icon name="arrow" size={18} />
-            </Link>
+        ) : (
+          <div className="journal-preview">
+            <div className="journal-photo">
+              <Image
+                src={siteAsset(
+                  branding?.medicalImageUrl,
+                  "/images/medical.jpg",
+                )}
+                unoptimized={!!branding?.medicalImageUrl}
+                alt=""
+                fill
+                sizes="(max-width:700px) 90vw, 40vw"
+              />
+            </div>
+            <div>
+              <span className="pill">
+                <Icon name="file" size={14} />
+                {fa ? "در انتظار بررسی علمی" : "AWAITING MEDICAL REVIEW"}
+              </span>
+              <h3>{t.journalEmpty}</h3>
+              <p>{t.journalEmptyDesc}</p>
+              <Link href={`/${locale}/articles`} className="text-link">
+                {fa ? "درباره مجله سلامت" : "About the health journal"}
+                <Icon name="arrow" size={18} />
+              </Link>
+            </div>
           </div>
-        </div>
+        )}
       </section>
       <section className="section faq-section">
         <div>

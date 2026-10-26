@@ -1,0 +1,57 @@
+import { z } from "zod";
+const localized = z.object({
+  fa: z.string().max(10000).default(""),
+  en: z.string().max(10000).default(""),
+});
+const asset = z
+  .string()
+  .max(2048)
+  .refine((v) => !v || /^\/(?!\/)/.test(v) || /^https:\/\//.test(v));
+const schemas = {
+  branding: z
+    .object({
+      primaryColor: z
+        .string()
+        .regex(/^#[\da-f]{6}$/i)
+        .optional(),
+      doctorImageUrl: asset.optional(),
+      consultationImageUrl: asset.optional(),
+      medicalImageUrl: asset.optional(),
+      logoUrl: asset.nullable().optional(),
+      lightFaviconUrl: asset.nullable().optional(),
+      darkFaviconUrl: asset.nullable().optional(),
+      socialImageUrl: asset.nullable().optional(),
+      appleTouchIconUrl: asset.nullable().optional(),
+    })
+    .passthrough(),
+  booking: z
+    .object({
+      enabled: z.boolean(),
+      patientScheduling: z.boolean(),
+      doctorScheduling: z.boolean(),
+    })
+    .refine((v) => !v.enabled || v.patientScheduling || v.doctorScheduling),
+  seo: z
+    .object({ title: localized.optional(), description: localized.optional() })
+    .passthrough(),
+  contact: z
+    .object({
+      phone: z.string().max(100).optional(),
+      email: z.union([z.literal(""), z.email()]).optional(),
+      address: localized.optional(),
+      hours: localized.optional(),
+      education: localized.optional(),
+      registration: localized.optional(),
+      interests: localized.optional(),
+    })
+    .passthrough(),
+  policies: z
+    .object({ privacy: localized.optional(), terms: localized.optional() })
+    .passthrough(),
+};
+export function validateSiteSettings(
+  key: keyof typeof schemas,
+  value: unknown,
+) {
+  return schemas[key].parse(value);
+}

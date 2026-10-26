@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lte, desc } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   localizedContent,
@@ -8,7 +8,8 @@ import {
   articles,
 } from "@/db/schema";
 import { copy, type Locale } from "@/lib/content";
-export async function publicHomeContent(locale: Locale) {
+import { cache } from "react";
+export const publicHomeContent = cache(async (locale: Locale) => {
   if (!process.env.DATABASE_URL) return copy[locale];
   const [row] = await getDb()
     .select({ value: localizedContent.value })
@@ -28,16 +29,21 @@ export async function publicHomeContent(locale: Locale) {
     ...copy[locale],
     ...Object.fromEntries(entries),
   } as (typeof copy)[Locale];
-}
-export async function publicSetting(key: string) {
-  if (!process.env.DATABASE_URL) return null;
-  const [row] = await getDb()
-    .select({ value: websiteSettings.value })
+});
+const publicSettings = cache(async () => {
+  if (!process.env.DATABASE_URL) return [];
+  return getDb()
+    .select({ key: websiteSettings.key, value: websiteSettings.value })
     .from(websiteSettings)
-    .where(eq(websiteSettings.key, key));
+    .where(
+      inArray(websiteSettings.key, ["branding", "contact", "policies", "seo"]),
+    );
+});
+export async function publicSetting(key: string) {
+  const row = (await publicSettings()).find((row) => row.key === key);
   return row?.value as Record<string, unknown> | null;
 }
-export async function publishedArticles(locale: Locale) {
+export const publishedArticles = cache(async (locale: Locale) => {
   if (!process.env.DATABASE_URL) return [];
   return getDb()
     .select({
@@ -45,7 +51,6 @@ export async function publishedArticles(locale: Locale) {
       slug: articles.slug,
       title: articleTranslations.title,
       description: articleTranslations.description,
-      body: articleTranslations.body,
       publishedAt: articles.publishedAt,
       approvedAt: articleTranslations.approvedAt,
     })
@@ -62,11 +67,40 @@ export async function publishedArticles(locale: Locale) {
         eq(articles.status, "published"),
         eq(articleTranslations.locale, locale),
         eq(articles.id, articleTranslations.articleId),
+        isNotNull(articleTranslations.approvedAt),
+        lte(articles.publishedAt, new Date()),
       ),
     )
-    .then((rows) =>
-      rows.filter(
-        (r) => r.approvedAt && r.publishedAt && r.publishedAt <= new Date(),
+    .orderBy(desc(articles.publishedAt))
+    .limit(100);
+});
+export const publishedArticle = cache(async (locale: Locale, slug: string) => {
+  if (!process.env.DATABASE_URL) return null;
+  const [article] = await getDb()
+    .select({
+      id: articles.id,
+      slug: articles.slug,
+      title: articleTranslations.title,
+      description: articleTranslations.description,
+      body: articleTranslations.body,
+      publishedAt: articles.publishedAt,
+    })
+    .from(articles)
+    .innerJoin(
+      articleTranslations,
+      and(
+        eq(articleTranslations.articleId, articles.id),
+        eq(articleTranslations.locale, locale),
       ),
-    );
-}
+    )
+    .where(
+      and(
+        eq(articles.slug, slug),
+        eq(articles.status, "published"),
+        isNotNull(articleTranslations.approvedAt),
+        lte(articles.publishedAt, new Date()),
+      ),
+    )
+    .limit(1);
+  return article || null;
+});

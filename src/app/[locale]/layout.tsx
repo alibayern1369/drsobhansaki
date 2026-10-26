@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { isLocale } from "@/lib/content";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
-import { publicSetting } from "@/server/content";
+import { SiteChrome } from "@/components/site-chrome";
+import { publicSetting, publicHomeContent } from "@/server/content";
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
 function assetUrl(value: unknown) {
@@ -25,8 +26,10 @@ export async function generateMetadata({
   const branding = await publicSetting("branding");
   const seo = await publicSetting("seo");
   const seoTitles = seo?.title as Record<string, string> | undefined;
+  const descriptions = seo?.description as Record<string, string> | undefined;
   return {
     metadataBase: new URL(base),
+    description: descriptions?.[locale] || undefined,
     title: {
       absolute:
         seoTitles?.[locale] ||
@@ -70,6 +73,8 @@ export default async function LocaleLayout({
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
+  const content = await publicHomeContent(locale);
+  const contact = await publicSetting("contact");
   const branding = await publicSetting("branding");
   const logo = assetUrl(branding?.logoUrl);
   const color =
@@ -91,9 +96,20 @@ export default async function LocaleLayout({
       <a href="#main" className="skip-link">
         {locale === "fa" ? "رفتن به محتوا" : "Skip to content"}
       </a>
-      <Header locale={locale} />
-      {children}
-      <Footer locale={locale} />
+      <SiteChrome
+        header={<Header locale={locale} content={content} />}
+        footer={
+          <Footer
+            locale={locale}
+            content={content}
+            phone={
+              typeof contact?.phone === "string" ? contact.phone : undefined
+            }
+          />
+        }
+      >
+        {children}
+      </SiteChrome>
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 } from "@/db/schema";
 import {
   decryptSecret,
+  hashPassword,
   encryptSecret,
   newTotpSecret,
   totpCounter,
@@ -67,14 +68,12 @@ async function confirmPassword(value: unknown) {
   return ctx;
 }
 async function audit(userId: string, action: string) {
-  await getDb()
-    .insert(auditLogs)
-    .values({
-      actorId: userId,
-      action,
-      entityType: "admin_security",
-      entityId: userId,
-    });
+  await getDb().insert(auditLogs).values({
+    actorId: userId,
+    action,
+    entityType: "admin_security",
+    entityId: userId,
+  });
 }
 async function issueSms(ctx: Awaited<ReturnType<typeof context>>) {
   await rateLimit(`admin-sms:${ctx.auth.user.id}`, 3, 600);
@@ -215,6 +214,61 @@ export async function adminAccess(
     return { ok: true };
   }
   await requireUser(true);
+  if (action === "account" && method === "POST") {
+    const owner = await requireUser(true);
+    if (owner.role !== "super_admin") throw new AppError(403, "FORBIDDEN");
+    const data = z
+      .object({
+        currentPassword: passwordSchema,
+        name: z.string().trim().min(2).max(100),
+        phone: z.string().regex(/^09\d{9}$/),
+        username: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .regex(/^[a-z0-9._-]{3,64}$/),
+        password: z.string().min(12).max(128),
+        role: z.enum(["staff", "doctor", "super_admin"]),
+      })
+      .parse(input);
+    await confirmPassword(data.currentPassword);
+    await rateLimit(`admin-account-create:${owner.id}`, 5, 900);
+    const passwordHash = await hashPassword(data.password);
+    await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(users)
+        .where(eq(users.phone, data.phone));
+      // Existing administrators must use their own password-change flow.
+      if (existing && existing.role !== "patient")
+        throw new AppError(409, "ACCOUNT_EXISTS");
+      const [account] = await tx
+        .insert(users)
+        .values({ name: data.name, phone: data.phone, role: data.role })
+        .onConflictDoUpdate({
+          target: users.phone,
+          set: {
+            name: data.name,
+            role: data.role,
+            disabled: false,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      await tx
+        .insert(adminCredentials)
+        .values({ userId: account.id, username: data.username, passwordHash });
+      await tx.delete(sessions).where(eq(sessions.userId, account.id));
+      await tx.insert(auditLogs).values({
+        actorId: owner.id,
+        action: "admin.account_created",
+        entityType: "user",
+        entityId: account.id,
+        metadata: { role: data.role },
+      });
+    });
+    return { ok: true, username: data.username };
+  }
   if (action === "totp-setup" && method === "POST") {
     const data = z.object({ currentPassword: passwordSchema }).parse(input);
     const ctx = await confirmPassword(data.currentPassword);
@@ -291,18 +345,16 @@ export async function adminAccess(
         .update(sessions)
         .set({ mfaVerifiedAt: new Date() })
         .where(eq(sessions.tokenHash, ctx.sessionHash));
-      await tx
-        .insert(auditLogs)
-        .values({
-          actorId: ctx.auth.user.id,
-          action: "admin.login_policy_changed",
-          entityType: "admin_security",
-          entityId: ctx.auth.user.id,
-          metadata: {
-            smsEnabled: data.smsEnabled,
-            totpEnabled: data.totpEnabled,
-          },
-        });
+      await tx.insert(auditLogs).values({
+        actorId: ctx.auth.user.id,
+        action: "admin.login_policy_changed",
+        entityType: "admin_security",
+        entityId: ctx.auth.user.id,
+        metadata: {
+          smsEnabled: data.smsEnabled,
+          totpEnabled: data.totpEnabled,
+        },
+      });
     });
     return { ok: true };
   }

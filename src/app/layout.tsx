@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./pages.css";
 import "./responsive.css";
+import "./admin.css";
 const vazir = localFont({
   src: "../../public/fonts/Vazirmatn.ttf",
   variable: "--font-vazir",

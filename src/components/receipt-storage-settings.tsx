@@ -25,7 +25,14 @@ export function ReceiptStorageSettings({ locale }: { locale: Locale }) {
   const [policy, setPolicy] = useState<ReceiptPolicy>(DEFAULT_RECEIPT_POLICY);
   const [ack, setAck] = useState(false);
   const [message, setMessage] = useState("");
-  const [preview, setPreview] = useState<unknown>(null);
+  const [preview, setPreview] = useState<{
+    scanned: number;
+    eligible: number;
+    deleted: number;
+    errors: number;
+    dryRun: boolean;
+    status: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
@@ -256,7 +263,23 @@ export function ReceiptStorageSettings({ locale }: { locale: Locale }) {
       )}
       {preview !== null && (
         <div className="content-panel" style={{ marginTop: 20 }}>
-          <pre className="data-preview">{JSON.stringify(preview, null, 2)}</pre>
+          <h2>{fa ? "نتیجهٔ پیش‌نمایش" : "Preview result"}</h2>
+          {[
+            [fa ? "فایل‌های بررسی‌شده" : "Files scanned", preview.scanned],
+            [fa ? "واجد شرایط" : "Eligible", preview.eligible],
+            [fa ? "حذف‌شده" : "Deleted", preview.deleted],
+            [fa ? "خطاها" : "Errors", preview.errors],
+          ].map(([label, count]) => (
+            <div className="summary-line" key={label}>
+              <span>{label}</span>
+              <strong>{count}</strong>
+            </div>
+          ))}
+          <p>
+            {fa
+              ? "این اجرا صرفاً پیش‌نمایش است و فایلی حذف نمی‌کند."
+              : "This is a preview; no files are deleted."}
+          </p>
         </div>
       )}
     </div>

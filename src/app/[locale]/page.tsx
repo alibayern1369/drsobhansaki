@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
 import { isLocale } from "@/lib/content";
 import { Home } from "@/components/home";
-import { publicHomeContent } from "@/server/content";
+import {
+  publicHomeContent,
+  publicSetting,
+  publishedArticles,
+} from "@/server/content";
 import { headers } from "next/headers";
 export default async function Page({
   params,
@@ -27,7 +31,12 @@ export default async function Page({
           __html: JSON.stringify(data).replace(/</g, "\\u003c"),
         }}
       />
-      <Home locale={locale} content={await publicHomeContent(locale)} />
+      <Home
+        locale={locale}
+        content={await publicHomeContent(locale)}
+        branding={await publicSetting("branding")}
+        articles={await publishedArticles(locale)}
+      />
     </>
   );
 }

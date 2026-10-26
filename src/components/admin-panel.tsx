@@ -6,8 +6,18 @@ import { AdminOperations } from "./admin-operations";
 import { AdminAppointmentActions } from "./admin-appointment-actions";
 import { AdminChallenge } from "./admin-login";
 import { AdminSecuritySettings } from "./admin-security-settings";
+import { AdminSiteSettings, type ContentRow } from "./admin-site-settings";
 import { ReceiptStorageSettings } from "./receipt-storage-settings";
+import { adminLabel } from "@/lib/admin-labels";
 type AdminData = {
+  role: string;
+  currentUserId: string;
+  stats?: {
+    total: number;
+    review: number;
+    confirmed: number;
+    completed: number;
+  };
   appointments: Array<{
     id: string;
     trackingCode: string;
@@ -15,6 +25,8 @@ type AdminData = {
     paymentStatus: string;
     priceRial: number;
     consultationTypeId: string;
+    patientName: string | null;
+    patientPhone: string;
   }>;
   consultations: Array<{
     id: string;
@@ -32,9 +44,15 @@ type AdminData = {
     contactNumber: string | null;
     username: string | null;
   }>;
-  content: unknown[];
+  content: ContentRow[];
   articles: unknown[];
-  audit: unknown[];
+  audit: Array<{
+    id: string;
+    action: string;
+    entityType: string;
+    entityId: string | null;
+    createdAt: string;
+  }>;
   settings: Array<{ key: string; value: unknown }>;
 };
 export function AdminPanel({
@@ -53,6 +71,8 @@ export function AdminPanel({
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("");
   async function load() {
     const r = await fetch("/api/admin/overview", {
       headers: { "Accept-Language": locale },
@@ -68,12 +88,50 @@ export function AdminPanel({
     if (!mfaRequired)
       void fetch("/api/admin/overview", {
         headers: { "Accept-Language": locale },
-      }).then(async (r) => {
-        const d = await r.json();
-        if (r.ok) setData(d);
-        else setMessage(d.message);
-      });
-  }, [mfaRequired, locale]);
+      })
+        .then(async (r) => {
+          const d = await r.json();
+          if (r.ok) {
+            setData(d);
+            const requested = window.location.hash.slice(1);
+            if (
+              [
+                "overview",
+                "appointments",
+                "patients",
+                "appointment-requests",
+                "consultations",
+                "banks",
+                "calendar",
+                "platforms",
+                "sms",
+                "articles",
+                "content",
+                "branding",
+                "contact",
+                "policies",
+                "seo",
+                "roles",
+                "audit",
+                "settings",
+                "receipt-storage",
+                "security-login",
+              ].includes(requested)
+            )
+              setTab(requested);
+          } else {
+            setMessage(d.message);
+            if (d.code === "ADMIN_MFA_REQUIRED") setMfa(true);
+          }
+        })
+        .catch(() =>
+          setMessage(
+            fa
+              ? "ارتباط با سرور برقرار نشد. صفحه را دوباره بارگذاری کنید."
+              : "Connection failed. Reload this page.",
+          ),
+        );
+  }, [mfaRequired, locale, fa]);
   async function save(path: string, value: unknown, method = "PUT") {
     setBusy(true);
     setMessage("");
@@ -106,6 +164,12 @@ export function AdminPanel({
       "calendar",
     ],
     ["patients", "بیماران", "Patients", "user"],
+    [
+      "appointment-requests",
+      "درخواست‌های بیماران",
+      "Patient requests",
+      "message",
+    ],
     ["consultations", "خدمات و تعرفه‌ها", "Consultations & pricing", "doctor"],
     ["banks", "حساب‌های بانکی", "Bank accounts", "copy"],
     ["calendar", "تقویم", "Calendar", "calendar"],
@@ -113,7 +177,9 @@ export function AdminPanel({
     ["sms", "مدیریت پیامک", "SMS management", "phone"],
     ["articles", "مقالات پزشکی", "Medical articles", "file"],
     ["content", "محتوای سایت", "Website content", "file"],
-    ["branding", "هویت بصری", "Branding", "settings"],
+    ["branding", "تصاویر و هویت بصری", "Images & branding", "settings"],
+    ["contact", "اطلاعات تماس", "Contact details", "phone"],
+    ["policies", "حریم خصوصی و شرایط", "Privacy & terms", "shield"],
     ["seo", "تنظیمات SEO", "SEO settings", "globe"],
     ["roles", "کاربران و نقش‌ها", "Users & roles", "shield"],
     ["audit", "گزارش امنیتی", "Security logs", "lock"],
@@ -183,21 +249,52 @@ export function AdminPanel({
   return (
     <div className="dashboard-grid">
       <aside className="dashboard-nav">
-        {tabs.map(([key, f, e, icon]) => (
-          <a
-            href={`#${key}`}
-            key={key}
-            className={tab === key ? "active" : ""}
-            onClick={(ev) => {
-              ev.preventDefault();
-              setTab(key);
-              setMessage("");
-            }}
-          >
-            <Icon name={icon} size={18} />
-            {fa ? f : e}
+        <div className="admin-nav-heading">
+          <strong>{fa ? "پنل مدیریت مطب" : "Practice administration"}</strong>
+          <a href={`/${locale}`} target="_blank" rel="noreferrer">
+            {fa ? "مشاهده سایت ↗" : "View website ↗"}
           </a>
-        ))}
+        </div>
+        {tabs
+          .filter(([key]) => key !== "roles" || data?.role === "super_admin")
+          .filter(
+            ([key]) =>
+              data?.role !== "staff" ||
+              [
+                "overview",
+                "appointments",
+                "patients",
+                "calendar",
+                "security-login",
+              ].includes(key),
+          )
+          .map(([key, f, e, icon]) => (
+            <a
+              href={`#${key}`}
+              key={key}
+              aria-current={tab === key ? "page" : undefined}
+              className={tab === key ? "active" : ""}
+              onClick={(ev) => {
+                ev.preventDefault();
+                setTab(key);
+                window.history.replaceState(null, "", `#${key}`);
+                setMessage("");
+              }}
+            >
+              <Icon name={icon} size={18} />
+              {fa ? f : e}
+            </a>
+          ))}
+        <button
+          type="button"
+          className="admin-logout"
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.reload();
+          }}
+        >
+          {fa ? "خروج از حساب" : "Sign out"}
+        </button>
       </aside>
       <div>
         <div className="dashboard-title">
@@ -246,33 +343,89 @@ export function AdminPanel({
                     <div className="stat-card" key={v}>
                       <span>{v}</span>
                       <strong>
-                        {
-                          data.appointments.filter(
-                            (a) =>
-                              i === 0 ||
-                              a.status ===
-                                [
-                                  "",
-                                  "awaiting_verification",
-                                  "confirmed",
-                                  "completed",
-                                ][i],
-                          ).length
-                        }
+                        {data.stats
+                          ? [
+                              data.stats.total,
+                              data.stats.review,
+                              data.stats.confirmed,
+                              data.stats.completed,
+                            ][i]
+                          : data.appointments.filter(
+                              (a) =>
+                                i === 0 ||
+                                a.status ===
+                                  [
+                                    "",
+                                    "awaiting_verification",
+                                    "confirmed",
+                                    "completed",
+                                  ][i],
+                            ).length}
                       </strong>
                     </div>
                   ))}
                 </div>
                 <div className="content-panel">
                   <h2>{fa ? "فعالیت‌های اخیر" : "Recent activity"}</h2>
-                  <pre className="data-preview">
-                    {JSON.stringify(data.audit.slice(0, 8), null, 2)}
-                  </pre>
+                  {data.audit.slice(0, 8).map((row) => (
+                    <div className="summary-line" key={row.id}>
+                      <strong>{auditLabel(row.action, fa)}</strong>
+                      <time>
+                        {new Date(row.createdAt).toLocaleString(
+                          fa ? "fa-IR" : "en-US",
+                          { timeZone: "Asia/Tehran" },
+                        )}
+                      </time>
+                    </div>
+                  ))}
+                  {!data.audit.length && (
+                    <p>{fa ? "فعالیتی ثبت نشده است." : "No activity yet."}</p>
+                  )}
                 </div>
               </>
             )}
             {tab === "appointments" && (
               <>
+                <div className="two-cols">
+                  <div className="field">
+                    <label htmlFor="appointment-search">
+                      {fa
+                        ? "جست‌وجوی نام، شماره همراه یا کد پیگیری"
+                        : "Search name, phone or tracking code"}
+                    </label>
+                    <input
+                      id="appointment-search"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="appointment-filter">
+                      {fa ? "وضعیت" : "Status"}
+                    </label>
+                    <select
+                      id="appointment-filter"
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value)}
+                    >
+                      <option value="">{fa ? "همه" : "All"}</option>
+                      {[
+                        "awaiting_payment",
+                        "awaiting_verification",
+                        "awaiting_scheduling",
+                        "confirmed",
+                        "in_progress",
+                        "completed",
+                        "cancelled",
+                        "expired",
+                      ].map((v) => (
+                        <option key={v} value={v}>
+                          {adminLabel(v, fa)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 {!data.appointments.length ? (
                   <div className="empty-state">
                     <h2>
@@ -282,93 +435,120 @@ export function AdminPanel({
                     </h2>
                   </div>
                 ) : (
-                  data.appointments.map((a) => (
-                    <div
-                      className="content-panel"
-                      key={a.id}
-                      style={{ marginBottom: 15 }}
-                    >
-                      <strong dir="ltr">{a.trackingCode}</strong>
-                      <p>
-                        {a.status} / {a.paymentStatus}
-                      </p>
-                      {a.paymentStatus === "under_review" && (
-                        <div
-                          style={{ display: "flex", gap: 10, flexWrap: "wrap" }}
-                        >
-                          <button
-                            className="button button-small"
-                            disabled={busy}
-                            onClick={() => {
-                              if (
-                                window.confirm(
-                                  fa
-                                    ? "آیا واریز را مستقلاً در حساب بانکی بررسی و تأیید کرده‌اید؟"
-                                    : "Have you independently verified the deposit in the bank account?",
-                                )
-                              )
-                                void save(
-                                  `appointments/${a.id}/payment`,
-                                  {
-                                    action: "approve",
-                                    bankDepositVerified: true,
-                                    idempotencyKey: crypto.randomUUID(),
-                                  },
-                                  "POST",
-                                );
-                            }}
-                          >
-                            {fa
-                              ? "تأیید واریز بانکی"
-                              : "Approve verified deposit"}
-                          </button>
-                          <button
-                            className="button button-small button-white"
-                            style={{ borderColor: "#ddd" }}
-                            disabled={busy}
-                            onClick={() =>
-                              save(
-                                `appointments/${a.id}/payment`,
-                                {
-                                  action: "reject",
-                                  idempotencyKey: crypto.randomUUID(),
-                                },
-                                "POST",
-                              )
-                            }
-                          >
-                            {fa ? "رد پرداخت" : "Reject payment"}
-                          </button>
-                          <button
-                            className="text-link"
-                            style={{ background: "none" }}
-                            disabled={busy}
-                            onClick={() =>
-                              save(
-                                `appointments/${a.id}/payment`,
-                                {
-                                  action: "request_information",
-                                  idempotencyKey: crypto.randomUUID(),
-                                },
-                                "POST",
-                              )
-                            }
-                          >
-                            {fa
-                              ? "درخواست رسید مجدد"
-                              : "Request receipt resubmission"}
-                          </button>
-                        </div>
-                      )}
-                      <AdminAppointmentActions
-                        locale={locale}
-                        id={a.id}
-                        consultationTypeId={a.consultationTypeId}
-                        status={a.status}
-                        onChange={load}
-                      />
-                    </div>
-                  ))
+                  data.appointments
+                    .filter(
+                      (a) =>
+                        (!filter || a.status === filter) &&
+                        `${a.trackingCode} ${a.patientName || ""} ${a.patientPhone || ""}`.includes(
+                          search,
+                        ),
+                    )
+                    .map((a) => (
+                      <div
+                        className="content-panel"
+                        key={a.id}
+                        style={{ marginBottom: 15 }}
+                      >
+                        <strong dir="ltr">{a.trackingCode}</strong>
+                        <p>
+                          {a.patientName || (fa ? "بیمار" : "Patient")} ·{" "}
+                          <span dir="ltr">{a.patientPhone}</span>
+                        </p>
+                        <p>
+                          {fa ? "مبلغ: " : "Amount: "}
+                          {a.priceRial.toLocaleString(
+                            fa ? "fa-IR" : "en-US",
+                          )}{" "}
+                          {fa ? "ریال" : "IRR"}
+                        </p>
+                        <p>
+                          {adminLabel(a.status, fa)} /{" "}
+                          {adminLabel(a.paymentStatus, fa)}
+                        </p>
+                        {data.role !== "staff" &&
+                          a.paymentStatus === "under_review" && (
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: 10,
+                                flexWrap: "wrap",
+                              }}
+                            >
+                              <button
+                                className="button button-small"
+                                disabled={busy}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      fa
+                                        ? "آیا واریز را مستقلاً در حساب بانکی بررسی و تأیید کرده‌اید؟"
+                                        : "Have you independently verified the deposit in the bank account?",
+                                    )
+                                  )
+                                    void save(
+                                      `appointments/${a.id}/payment`,
+                                      {
+                                        action: "approve",
+                                        bankDepositVerified: true,
+                                        idempotencyKey: crypto.randomUUID(),
+                                      },
+                                      "POST",
+                                    );
+                                }}
+                              >
+                                {fa
+                                  ? "تأیید واریز بانکی"
+                                  : "Approve verified deposit"}
+                              </button>
+                              <button
+                                className="button button-small button-white"
+                                style={{ borderColor: "#ddd" }}
+                                disabled={busy}
+                                onClick={() =>
+                                  save(
+                                    `appointments/${a.id}/payment`,
+                                    {
+                                      action: "reject",
+                                      idempotencyKey: crypto.randomUUID(),
+                                    },
+                                    "POST",
+                                  )
+                                }
+                              >
+                                {fa ? "رد پرداخت" : "Reject payment"}
+                              </button>
+                              <button
+                                className="text-link"
+                                style={{ background: "none" }}
+                                disabled={busy}
+                                onClick={() =>
+                                  save(
+                                    `appointments/${a.id}/payment`,
+                                    {
+                                      action: "request_information",
+                                      idempotencyKey: crypto.randomUUID(),
+                                    },
+                                    "POST",
+                                  )
+                                }
+                              >
+                                {fa
+                                  ? "درخواست رسید مجدد"
+                                  : "Request receipt resubmission"}
+                              </button>
+                            </div>
+                          )}
+                        {data.role !== "staff" && (
+                          <AdminAppointmentActions
+                            locale={locale}
+                            id={a.id}
+                            consultationTypeId={a.consultationTypeId}
+                            status={a.status}
+                            onChange={load}
+                          />
+                        )}
+                      </div>
+                    ))
                 )}
               </>
             )}
@@ -470,7 +650,7 @@ export function AdminPanel({
                     });
                   }}
                 >
-                  <h2>{p.key}</h2>
+                  <h2>{adminLabel(p.key, fa)}</h2>
                   {[
                     [
                       "phone",
@@ -511,129 +691,126 @@ export function AdminPanel({
                 </div>
               </>
             )}
-            {tab === "content" && (
-              <JsonEditor
+            {[
+              "content",
+              "branding",
+              "seo",
+              "settings",
+              "contact",
+              "policies",
+            ].includes(tab) && (
+              <AdminSiteSettings
+                key={tab}
+                tab={tab}
                 locale={locale}
-                initial={{
-                  key: "homepage",
-                  locale: "fa",
-                  published: false,
-                  value: {},
-                }}
-                onSave={(value) => save("content", value)}
-                description={
-                  fa
-                    ? "کلیدهای متن صفحهٔ اصلی را برای هر زبان ویرایش کنید. انتشار محتوا نیازمند تأیید شماست."
-                    : "Edit homepage text keys per locale. Publishing requires your approval."
-                }
+                settings={data.settings}
+                content={data.content}
+                busy={busy}
+                save={save}
               />
             )}
             {tab === "receipt-storage" && (
               <ReceiptStorageSettings locale={locale} />
             )}
-            {["branding", "seo", "settings"].includes(tab) && (
-              <JsonEditor
-                key={tab}
-                locale={locale}
-                initial={
-                  data.settings.find(
-                    (s) => s.key === (tab === "settings" ? "booking" : tab),
-                  )?.value ||
-                  (tab === "branding"
-                    ? {
-                        primaryColor: "#0866ff",
-                        logoUrl: null,
-                        lightFaviconUrl: null,
-                        darkFaviconUrl: null,
-                      }
-                    : tab === "settings"
-                      ? {
-                          enabled: false,
-                          patientScheduling: false,
-                          doctorScheduling: false,
-                        }
-                      : {
-                          title: {
-                            fa: "دکتر سبحان ساکی",
-                            en: "Dr. Sobhan Saki",
-                          },
-                        })
-                }
-                onSave={(value) =>
-                  save("settings", {
-                    key: tab === "settings" ? "booking" : tab,
-                    value,
-                  })
-                }
-                description={
-                  fa
-                    ? "تنظیمات ساختاریافتهٔ سامانه؛ قبل از فعال‌سازی رزرو، حساب بانکی و برنامه را تأیید کنید."
-                    : "Structured configuration. Verify bank accounts and scheduling before enabling bookings."
-                }
-              />
-            )}
             {tab === "audit" && (
-              <div className="content-panel">
-                <pre className="data-preview">
-                  {JSON.stringify(data.audit, null, 2)}
-                </pre>
+              <div className="content-panel admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      {(fa
+                        ? ["زمان", "رویداد", "بخش", "شناسه"]
+                        : ["Time", "Event", "Section", "Reference"]
+                      ).map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.audit.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          {new Date(row.createdAt).toLocaleString(
+                            fa ? "fa-IR" : "en-US",
+                            { timeZone: "Asia/Tehran" },
+                          )}
+                        </td>
+                        <td>{auditLabel(row.action, fa)}</td>
+                        <td>{auditLabel(row.entityType, fa)}</td>
+                        <td dir="ltr">{row.entityId || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {!data.audit.length && (
+                  <p>{fa ? "رویدادی ثبت نشده است." : "No events recorded."}</p>
+                )}
               </div>
             )}
-            {["patients", "calendar", "sms", "roles", "banks"].includes(
-              tab,
-            ) && <AdminOperations key={tab} tab={tab} locale={locale} />}
+            {[
+              "patients",
+              "calendar",
+              "sms",
+              "roles",
+              "banks",
+              "appointment-requests",
+            ].includes(tab) && (
+              <AdminOperations
+                key={tab}
+                tab={tab}
+                locale={locale}
+                canManage={data.role !== "staff"}
+                currentUserId={data.currentUserId}
+              />
+            )}
           </>
         )}
       </div>
     </div>
   );
 }
-function JsonEditor({
-  locale,
-  initial,
-  onSave,
-  description,
-}: {
-  locale: Locale;
-  initial: unknown;
-  onSave: (value: unknown) => void;
-  description: string;
-}) {
-  const [value, setValue] = useState(JSON.stringify(initial, null, 2));
-  const [error, setError] = useState("");
-  return (
-    <form
-      className="content-panel content-editor"
-      onSubmit={(e) => {
-        e.preventDefault();
-        try {
-          onSave(JSON.parse(value));
-          setError("");
-        } catch {
-          setError(
-            locale === "fa" ? "ساختار JSON معتبر نیست." : "Invalid JSON.",
-          );
-        }
-      }}
-    >
-      <p>{description}</p>
-      <div className="field">
-        <label htmlFor="json-editor">
-          {locale === "fa" ? "تنظیمات" : "Configuration"}
-        </label>
-        <textarea
-          dir="ltr"
-          id="json-editor"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-        />
-      </div>
-      {error && <p className="form-error">{error}</p>}
-      <button className="button button-small">
-        {locale === "fa" ? "ذخیره تغییرات" : "Save changes"}
-      </button>
-    </form>
-  );
+function auditLabel(action: string, fa: boolean) {
+  if (!fa) return action.replace(/[._]/g, " ");
+  const words: Record<string, string> = {
+    admin: "مدیر",
+    password_login: "ورود با رمز",
+    mfa_verified: "تأیید دومرحله‌ای",
+    login_policy_changed: "تغییر روش ورود",
+    password_changed: "تغییر رمز",
+    sms_settings_changed: "تنظیم پیامک",
+    settings: "تنظیمات",
+    update: "ویرایش",
+    content: "محتوا",
+    bank: "حساب بانکی",
+    create: "ایجاد",
+    article: "مقاله",
+    save_draft: "ذخیره پیش‌نویس",
+    approve: "تأیید انتشار",
+    auth: "ورود",
+    mfa: "احراز هویت",
+    user: "کاربر",
+    role_update: "تغییر نقش",
+    website: "سایت",
+    image_upload: "آپلود عکس",
+    website_image: "تصویر سایت",
+    appointment: "نوبت",
+    slot: "زمان رزرو",
+    calendar: "تقویم",
+    block: "تعطیلی",
+    sms: "پیامک",
+    template_update: "ویرایش قالب",
+    retry: "ارسال مجدد",
+    payment: "پرداخت",
+    details_access: "مشاهده جزئیات",
+    consultation: "مشاوره",
+    platform: "پیام‌رسان",
+    admin_security: "امنیت مدیر",
+    notification: "اعلان",
+    blocked_date: "تعطیلی",
+  };
+  return action
+    .split(".")
+    .map((w) => words[w] || w.replace(/_/g, " "))
+    .join(" · ");
 }
 function ArticleEditor({
   locale,

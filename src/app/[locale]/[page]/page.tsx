@@ -1,7 +1,13 @@
+import {
+  publicHomeContent,
+  publicSetting,
+  publishedArticles,
+} from "@/server/content";
+import { siteAsset } from "@/lib/site-assets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { copy, services, isLocale } from "@/lib/content";
+import { services, isLocale } from "@/lib/content";
 import { Icon, type IconName } from "@/components/icon";
 import { PageBanner } from "@/components/page-banner";
 import { LoginForm } from "@/components/login-form";
@@ -42,7 +48,15 @@ export default async function Page({
   const { locale, page } = await params;
   if (!isLocale(locale) || !(page in titles)) notFound();
   const fa = locale === "fa";
-  const t = copy[locale];
+  const t = await publicHomeContent(locale);
+  const branding = await publicSetting("branding");
+  const contact = await publicSetting("contact");
+  const policies = await publicSetting("policies");
+  const journal = page === "articles" ? await publishedArticles(locale) : [];
+  const localText = (value: unknown) =>
+    typeof value === "object" && value
+      ? String((value as Record<string, unknown>)[locale] || "")
+      : "";
   const title = titles[page as keyof typeof titles][fa ? 0 : 1];
   return (
     <main id="main">
@@ -88,13 +102,21 @@ export default async function Page({
                   <div className="about-visual">
                     <div className="about-photo">
                       <Image
-                        src="/images/doctor.jpg"
+                        src={siteAsset(
+                          branding?.doctorImageUrl,
+                          "/images/doctor.jpg",
+                        )}
+                        unoptimized={!!branding?.doctorImageUrl}
                         alt={t.stock}
                         fill
                         sizes="(max-width:700px) 90vw, 40vw"
                       />
                       <span className="photo-label">
-                        {fa ? "تصویر نمایشی" : "Illustrative image"}
+                        {branding?.doctorImageUrl
+                          ? t.name
+                          : fa
+                            ? "تصویر نمایشی"
+                            : "Illustrative image"}
                       </span>
                     </div>
                     <div className="about-blue-block">
@@ -132,13 +154,19 @@ export default async function Page({
                     <div key={v}>
                       <h3>{v}</h3>
                       <p>
-                        {i === 2
-                          ? fa
-                            ? "پزشکی عمومی؛ پایش قند، فشار و چربی خون، ارزیابی اولیه تیروئید، کبد چرب و سلامت شغلی."
-                            : "General practice; blood sugar, pressure and lipids, initial thyroid assessment, fatty liver and occupational health."
-                          : fa
-                            ? "پس از تأیید پزشک تکمیل می‌شود."
-                            : "To be completed after verification by the doctor."}
+                        {[
+                          localText(contact?.education),
+                          localText(contact?.registration),
+                          localText(contact?.interests),
+                          String(contact?.phone || ""),
+                        ][i] ||
+                          (i === 2
+                            ? fa
+                              ? "پزشکی عمومی؛ پایش قند، فشار و چربی خون، ارزیابی اولیه تیروئید، کبد چرب و سلامت شغلی."
+                              : "General practice; blood sugar, pressure and lipids, initial thyroid assessment, fatty liver and occupational health."
+                            : fa
+                              ? "پس از تأیید پزشک تکمیل می‌شود."
+                              : "To be completed after verification by the doctor.")}
                       </p>
                     </div>
                   ))}
@@ -151,23 +179,25 @@ export default async function Page({
             )}
             {page === "articles" && (
               <>
-                <PublishedJournal locale={locale} />
-                <div className="empty-state">
-                  <span className="small-icon">
-                    <Icon name="file" size={28} />
-                  </span>
-                  <h2>{t.journalEmpty}</h2>
-                  <p>{t.journalEmptyDesc}</p>
-                  <p>
-                    {fa
-                      ? "محتوای تأییدنشده یا ترجمه‌های بررسی‌نشده در این بخش نمایش داده نمی‌شوند."
-                      : "Unapproved content and unreviewed translations are not published here."}
-                  </p>
-                  <Link href={`/${locale}/services`} className="button">
-                    {t.services}
-                    <Icon name="arrow" size={16} />
-                  </Link>
-                </div>
+                <PublishedJournal locale={locale} articles={journal} />
+                {!journal.length && (
+                  <div className="empty-state">
+                    <span className="small-icon">
+                      <Icon name="file" size={28} />
+                    </span>
+                    <h2>{t.journalEmpty}</h2>
+                    <p>{t.journalEmptyDesc}</p>
+                    <p>
+                      {fa
+                        ? "محتوای تأییدنشده یا ترجمه‌های بررسی‌نشده در این بخش نمایش داده نمی‌شوند."
+                        : "Unapproved content and unreviewed translations are not published here."}
+                    </p>
+                    <Link href={`/${locale}/services`} className="button">
+                      {t.services}
+                      <Icon name="arrow" size={16} />
+                    </Link>
+                  </div>
+                )}
               </>
             )}
             {page === "contact" && (
@@ -177,23 +207,23 @@ export default async function Page({
                   <p>{t.infoPending}</p>
                   <div className="profile-details">
                     {(fa
-                      ? [
-                          "شماره تماس",
-                          "نشانی مطب",
-                          "پیام‌رسان‌ها",
-                          "ساعات پاسخ‌گویی",
-                        ]
+                      ? ["شماره تماس", "نشانی مطب", "ایمیل", "ساعات پاسخ‌گویی"]
                       : [
                           "Phone number",
                           "Practice address",
-                          "Messaging platforms",
+                          "Email",
                           "Office hours",
                         ]
-                    ).map((v) => (
+                    ).map((v, i) => (
                       <div key={v}>
                         <h3>{v}</h3>
                         <p>
-                          {fa ? "در انتظار تأیید" : "Awaiting verification"}
+                          {[
+                            String(contact?.phone || ""),
+                            localText(contact?.address),
+                            String(contact?.email || ""),
+                            localText(contact?.hours),
+                          ][i] || (fa ? "در انتظار تکمیل" : "Not provided")}
                         </p>
                       </div>
                     ))}
@@ -215,7 +245,12 @@ export default async function Page({
                 </aside>
               </div>
             )}
-            {page === "privacy" && (
+            {page === "privacy" && localText(policies?.privacy) && (
+              <div className="content-panel" style={{ whiteSpace: "pre-wrap" }}>
+                {localText(policies?.privacy)}
+              </div>
+            )}
+            {page === "privacy" && !localText(policies?.privacy) && (
               <div className="content-panel">
                 <div className="notice warn" style={{ marginBottom: 20 }}>
                   {fa
@@ -248,7 +283,12 @@ export default async function Page({
                 </p>
               </div>
             )}
-            {page === "terms" && (
+            {page === "terms" && localText(policies?.terms) && (
+              <div className="content-panel" style={{ whiteSpace: "pre-wrap" }}>
+                {localText(policies?.terms)}
+              </div>
+            )}
+            {page === "terms" && !localText(policies?.terms) && (
               <div className="content-panel">
                 <div className="notice warn" style={{ marginBottom: 20 }}>
                   {fa

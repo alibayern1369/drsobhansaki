@@ -4,8 +4,14 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { copy, type Locale } from "@/lib/content";
 import { Icon } from "./icon";
-export function Brand({ locale }: { locale: Locale }) {
-  const t = copy[locale];
+export function Brand({
+  locale,
+  content,
+}: {
+  locale: Locale;
+  content?: (typeof copy)[Locale];
+}) {
+  const t = content || copy[locale];
   return (
     <Link href={`/${locale}`} className="brand" aria-label={t.name}>
       <span className="brand-symbol">
@@ -19,8 +25,14 @@ export function Brand({ locale }: { locale: Locale }) {
     </Link>
   );
 }
-export function Header({ locale }: { locale: Locale }) {
-  const t = copy[locale];
+export function Header({
+  locale,
+  content,
+}: {
+  locale: Locale;
+  content?: (typeof copy)[Locale];
+}) {
+  const t = content || copy[locale];
   const [open, setOpen] = useState(false);
   const path = usePathname();
   const links = [
@@ -32,7 +44,7 @@ export function Header({ locale }: { locale: Locale }) {
   ];
   return (
     <header className="header">
-      <Brand locale={locale} />
+      <Brand locale={locale} content={t} />
       <nav
         className={open ? "navigation is-open" : "navigation"}
         aria-label={locale === "fa" ? "منوی اصلی" : "Main navigation"}

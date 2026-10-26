@@ -34,15 +34,25 @@ export function AdminSecuritySettings({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    void fetch("/api/admin-access/status").then(async (response) => {
-      if (response.ok) setPolicy(await response.json());
-    });
-    void fetch("/api/admin-access/sms-settings").then(async (response) => {
-      if (response.ok) {
-        const data = await response.json();
-        setSms({ ...data, password: "" });
+    let active = true;
+    void (async () => {
+      const response = await fetch("/api/admin-access/status");
+      const policy = await response.json();
+      if (!response.ok) throw new Error(policy.message);
+      if (!active) return;
+      setPolicy(policy);
+      if (policy.role === "super_admin") {
+        const smsResponse = await fetch("/api/admin-access/sms-settings");
+        const saved = await smsResponse.json();
+        if (!smsResponse.ok) throw new Error(saved.message);
+        if (active) setSms({ ...saved, password: "" });
       }
+    })().catch((error) => {
+      if (active) setMessage((error as Error).message);
     });
+    return () => {
+      active = false;
+    };
   }, []);
   async function call(action: string, method: string, body: unknown) {
     setBusy(true);

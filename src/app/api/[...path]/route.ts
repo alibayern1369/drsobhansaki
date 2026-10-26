@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { and, asc, desc, eq, gt, getTableColumns } from "drizzle-orm";
+import { and, asc, desc, eq, gt, getTableColumns, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
@@ -20,6 +20,8 @@ import {
 import { verifyMfa } from "@/server/mfa";
 import { assertTransition, canVerifyPayment } from "@/lib/domain";
 import { adminOperations } from "@/server/admin-operations";
+import { validateSiteSettings } from "@/lib/site-settings";
+import { normalizeDigits } from "@/lib/admin-labels";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const uuid = z.uuid();
@@ -197,9 +199,26 @@ async function dispatch(request: Request, segments: string[], method: string) {
     if (operation) return operation;
     if (method === "GET" && path === "admin/overview") {
       return response({
+        role: user.role,
+        currentUserId: user.id,
+        stats: (
+          await db
+            .select({
+              total: sql<number>`count(*)::int`,
+              review: sql<number>`count(*) filter (where payment_status='under_review')::int`,
+              confirmed: sql<number>`count(*) filter (where status='confirmed')::int`,
+              completed: sql<number>`count(*) filter (where status='completed')::int`,
+            })
+            .from(s.appointments)
+        )[0],
         appointments: await db
-          .select()
+          .select({
+            ...getTableColumns(s.appointments),
+            patientName: s.users.name,
+            patientPhone: s.users.phone,
+          })
           .from(s.appointments)
+          .innerJoin(s.users, eq(s.users.id, s.appointments.patientId))
           .orderBy(desc(s.appointments.createdAt))
           .limit(100),
         consultations: await db.select().from(s.consultationTypes),
@@ -287,6 +306,7 @@ async function dispatch(request: Request, segments: string[], method: string) {
           value: z.record(z.string(), z.unknown()),
         })
         .parse(await request.json());
+      data.value = validateSiteSettings(data.key, data.value);
       await db.transaction(async (tx) => {
         await tx
           .insert(s.websiteSettings)
@@ -414,7 +434,10 @@ async function dispatch(request: Request, segments: string[], method: string) {
         .object({
           bankName: z.string().min(2).max(100),
           holderName: z.string().min(3).max(100),
-          cardNumber: z.string().regex(/^\d{16}$/),
+          cardNumber: z
+            .string()
+            .transform((v) => normalizeDigits(v).replace(/[\s-]/g, ""))
+            .pipe(z.string().regex(/^\d{16}$/)),
           enabled: z.boolean(),
           sortOrder: z.number().int(),
         })

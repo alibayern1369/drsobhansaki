@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { type Locale } from "@/lib/content";
 import { ReceiptRetentionControls } from "./receipt-storage-settings";
+import { adminLabel } from "@/lib/admin-labels";
 export function AdminAppointmentActions({
   locale,
   id,
@@ -92,7 +93,8 @@ export function AdminAppointmentActions({
         <div key={r.id}>
           <div className="summary-line">
             <span>
-              {fa ? "رسید پرداخت" : "Payment receipt"} · {r.scanStatus}
+              {fa ? "رسید پرداخت" : "Payment receipt"} ·{" "}
+              {adminLabel(r.scanStatus, fa)}
             </span>
             <button
               className="text-link"

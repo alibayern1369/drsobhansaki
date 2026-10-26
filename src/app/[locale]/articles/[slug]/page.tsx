@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { medicalReferences } from "@/db/schema";
-import { publishedArticles } from "@/server/content";
+import { publishedArticle } from "@/server/content";
 import { isLocale } from "@/lib/content";
 import { PageBanner } from "@/components/page-banner";
 export async function generateMetadata({
@@ -12,9 +12,7 @@ export async function generateMetadata({
 }) {
   const { locale, slug } = await params;
   if (!isLocale(locale)) return {};
-  const article = (await publishedArticles(locale)).find(
-    (a) => a.slug === slug,
-  );
+  const article = await publishedArticle(locale, slug);
   return {
     title: article?.title,
     description: article?.description,
@@ -31,9 +29,7 @@ export default async function Page({
 }) {
   const { locale, slug } = await params;
   if (!isLocale(locale)) notFound();
-  const article = (await publishedArticles(locale)).find(
-    (a) => a.slug === slug,
-  );
+  const article = await publishedArticle(locale, slug);
   if (!article) notFound();
   const refs = await getDb()
     .select()
