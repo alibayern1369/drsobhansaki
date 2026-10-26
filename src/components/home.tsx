@@ -4,6 +4,7 @@ import Link from "next/link";
 import { copy, faqs, services, type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
 import { Reveal } from "./reveal";
+import { articleCover } from "./article-content";
 export function Home({
   locale,
   content,
@@ -17,6 +18,7 @@ export function Home({
     id: string;
     slug: string;
     title: string;
+    body?: string;
     description: string | null;
   }>;
 }) {
@@ -89,13 +91,6 @@ export function Home({
               sizes="(max-width: 700px) 90vw, 45vw"
             />
             <div className="photo-gradient" />
-            <span className="photo-label">
-              {branding?.doctorImageUrl
-                ? t.name
-                : fa
-                  ? "تصویر نمایشی"
-                  : "Illustrative image"}
-            </span>
             <div className="doctor-caption">
               <span className="doctor-icon">
                 <Icon name="doctor" size={25} />
@@ -297,13 +292,6 @@ export function Home({
               fill
               sizes="(max-width:700px) 90vw, 45vw"
             />
-            <span className="photo-label">
-              {branding?.doctorImageUrl
-                ? t.name
-                : fa
-                  ? "تصویر نمایشی"
-                  : "Illustrative image"}
-            </span>
           </div>
           <div className="about-blue-block">
             <Icon name="doctor" size={40} />
@@ -404,8 +392,18 @@ export function Home({
                 key={article.id}
                 href={`/${locale}/articles/${article.slug}`}
               >
+                {article.body && articleCover(article.body) && (
+                  <Image
+                    src={articleCover(article.body)!.src}
+                    alt={articleCover(article.body)!.alt}
+                    unoptimized
+                    width={1200}
+                    height={630}
+                    className="article-cover"
+                  />
+                )}
                 <span className="eyebrow">
-                  {fa ? "مقاله تأییدشده" : "REVIEWED ARTICLE"}
+                  {fa ? "مقاله آموزشی" : "HEALTH ARTICLE"}
                 </span>
                 <h3>{article.title}</h3>
                 <p>{article.description}</p>
@@ -429,7 +427,7 @@ export function Home({
             <div>
               <span className="pill">
                 <Icon name="file" size={14} />
-                {fa ? "در انتظار بررسی علمی" : "AWAITING MEDICAL REVIEW"}
+                {fa ? "آموزش سلامت" : "HEALTH EDUCATION"}
               </span>
               <h3>{t.journalEmpty}</h3>
               <p>{t.journalEmptyDesc}</p>

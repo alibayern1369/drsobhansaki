@@ -1,4 +1,7 @@
 "use client";
+import { ArticleImageField, withArticleCover } from "./article-image-field";
+import { formatJalali } from "@/lib/jalali";
+import { JalaliDatePicker, PersianTimeInput } from "./jalali-date-picker";
 import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 import { Icon } from "./icon";
@@ -126,12 +129,7 @@ export function AdminOperations({
                   <h3>{adminLabel(row.kind, fa)}</h3>
                   <p>{row.name || row.phone}</p>
                   <p dir="ltr">{row.trackingCode}</p>
-                  <time>
-                    {new Date(String(row.createdAt)).toLocaleString(
-                      fa ? "fa-IR" : "en-US",
-                      { timeZone: "Asia/Tehran" },
-                    )}
-                  </time>
+                  <time>{formatJalali(String(row.createdAt), true)}</time>
                   <div className="admin-actions">
                     <button
                       className="button button-small"
@@ -162,6 +160,11 @@ export function AdminOperations({
           )}
           {tab === "patients" && (
             <>
+              <p className="notice">
+                {fa
+                  ? "بیماران با رمز یک‌بارمصرف شماره همراه وارد پنل خود می‌شوند و دسترسی به مدیریت سایت ندارند. این فهرست شامل ۲۰۰ حساب اخیر است."
+                  : "Patients sign in with mobile OTP and have no site administration access. Showing the 200 most recent accounts."}
+              </p>
               <div className="field">
                 <label htmlFor="patient-search">
                   {fa
@@ -175,30 +178,41 @@ export function AdminOperations({
                   placeholder={fa ? "جست‌وجوی بیمار…" : "Search patients…"}
                 />
               </div>
-              {rows
-                .filter((r) => `${r.name || ""}${r.phone}`.includes(search))
-                .map((r) => (
-                  <div
-                    className="content-panel"
-                    key={String(r.id)}
-                    style={{
-                      marginBottom: 12,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 16,
-                    }}
-                  >
-                    <span className="small-icon">
-                      <Icon name="user" />
-                    </span>
-                    <div>
+              <div className="patient-table">
+                <div className="patient-table-heading">
+                  <span>{fa ? "بیمار" : "Patient"}</span>
+                  <span>{fa ? "شماره همراه" : "Mobile"}</span>
+                  <span>{fa ? "عضویت" : "Registered"}</span>
+                  <span>{fa ? "حساب" : "Account"}</span>
+                </div>
+                {rows
+                  .filter((r) =>
+                    normalizeDigits(String(r.name || "") + String(r.phone))
+                      .toLowerCase()
+                      .includes(normalizeDigits(search).toLowerCase()),
+                  )
+                  .map((r) => (
+                    <div className="patient-table-row" key={String(r.id)}>
                       <strong>
+                        <span className="patient-avatar">
+                          <Icon name="user" size={18} />
+                        </span>
                         {r.name || (fa ? "نام ثبت نشده" : "Name not provided")}
                       </strong>
-                      <p dir="ltr">{r.phone}</p>
+                      <span dir="ltr">{r.phone}</span>
+                      <span>{formatJalali(String(r.createdAt))}</span>
+                      <span className="pill">
+                        {r.disabled
+                          ? fa
+                            ? "غیرفعال"
+                            : "Disabled"
+                          : fa
+                            ? "فعال"
+                            : "Active"}
+                      </span>
                     </div>
-                  </div>
-                ))}
+                  ))}
+              </div>
               {!rows.length && (
                 <p>{fa ? "بیماری ثبت نشده است." : "No patients registered."}</p>
               )}
@@ -206,69 +220,105 @@ export function AdminOperations({
           )}
           {tab === "roles" && (
             <>
-              <AdminAccountCreator
-                locale={locale}
-                onCreated={async () => {
-                  const response = await fetch("/api/admin/roles");
-                  if (response.ok) setData(await response.json());
-                }}
-              />
-              {rows.map((r) => (
-                <form
-                  className="content-panel"
-                  key={String(r.id)}
-                  style={{ marginBottom: 15 }}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    void save(`roles/${r.id}`, {
-                      role: f.get("role"),
-                      disabled: f.get("disabled") === "on",
-                    });
+              <p className="notice">
+                {fa
+                  ? "این بخش فقط مدیران و کارکنان مجاز را نشان می‌دهد. بیماران در منوی بیماران جدا هستند و با رمز یک‌بارمصرف موبایل وارد می‌شوند. ورود مدیران با نام کاربری و گذرواژه انجام می‌شود."
+                  : "Staff accounts use administrator credentials. Patients are listed separately and sign in using mobile OTP."}
+              </p>
+              <details className="staff-account">
+                <summary>
+                  {fa
+                    ? "افزودن مدیر یا همکار جدید"
+                    : "Add an administrator or staff member"}
+                </summary>
+                <AdminAccountCreator
+                  locale={locale}
+                  onCreated={async () => {
+                    const response = await fetch("/api/admin/roles");
+                    if (response.ok) setData(await response.json());
                   }}
-                >
-                  <strong>{r.name || r.phone}</strong>
-                  <div className="field">
-                    <label htmlFor={`role-${r.id}`}>
-                      {fa ? "نقش" : "Role"}
-                    </label>
-                    <select
-                      id={`role-${r.id}`}
-                      name="role"
-                      disabled={r.id === currentUserId}
-                      defaultValue={String(r.role)}
+                />
+              </details>
+              <div className="field">
+                <label htmlFor="staff-search">
+                  {fa ? "جست‌وجوی مدیر و همکار" : "Find a staff account"}
+                </label>
+                <input
+                  id="staff-search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              {rows
+                .filter((r) =>
+                  normalizeDigits(
+                    `${r.name || ""} ${r.phone || ""} ${r.username || ""}`,
+                  )
+                    .toLowerCase()
+                    .includes(normalizeDigits(search).toLowerCase()),
+                )
+                .map((r) => (
+                  <details className="staff-account" key={String(r.id)}>
+                    <summary>
+                      <strong>{String(r.name || r.phone)}</strong> ·{" "}
+                      {String(r.username || "")} ·{" "}
+                      {adminLabel(String(r.role), fa)}
+                    </summary>
+                    <form
+                      className="content-panel"
+                      key={String(r.id)}
+                      style={{ marginBottom: 15 }}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const f = new FormData(e.currentTarget);
+                        void save(`roles/${r.id}`, {
+                          role: f.get("role"),
+                          disabled: f.get("disabled") === "on",
+                        });
+                      }}
                     >
-                      {[
-                        ["patient", "بیمار", "Patient"],
-                        ["staff", "کارمند مجاز", "Authorized staff"],
-                        ["doctor", "پزشک", "Doctor"],
-                        ["super_admin", "مدیر کل", "Super administrator"],
-                      ].map(([v, f, e]) => (
-                        <option key={v} value={v}>
-                          {fa ? f : e}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      name="disabled"
-                      disabled={r.id === currentUserId}
-                      defaultChecked={!!r.disabled}
-                    />
-                    {fa ? "غیرفعال کردن حساب" : "Disable account"}
-                  </label>
-                  <button
-                    className="button button-small"
-                    disabled={busy || r.id === currentUserId}
-                  >
-                    {fa
-                      ? "ذخیره و لغو نشست‌های قبلی"
-                      : "Save & revoke existing sessions"}
-                  </button>
-                </form>
-              ))}
+                      <strong>{r.name || r.phone}</strong>
+                      <div className="field">
+                        <label htmlFor={`role-${r.id}`}>
+                          {fa ? "نقش" : "Role"}
+                        </label>
+                        <select
+                          id={`role-${r.id}`}
+                          name="role"
+                          disabled={r.id === currentUserId}
+                          defaultValue={String(r.role)}
+                        >
+                          {[
+                            ["staff", "کارمند مجاز", "Authorized staff"],
+                            ["doctor", "پزشک", "Doctor"],
+                            ["super_admin", "مدیر کل", "Super administrator"],
+                          ].map(([v, f, e]) => (
+                            <option key={v} value={v}>
+                              {fa ? f : e}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          name="disabled"
+                          disabled={r.id === currentUserId}
+                          defaultChecked={!!r.disabled}
+                        />
+                        {fa ? "غیرفعال کردن حساب" : "Disable account"}
+                      </label>
+                      <button
+                        className="button button-small"
+                        disabled={busy || r.id === currentUserId}
+                      >
+                        {fa
+                          ? "ذخیره و لغو نشست‌های قبلی"
+                          : "Save & revoke existing sessions"}
+                      </button>
+                    </form>
+                  </details>
+                ))}
             </>
           )}
           {tab === "calendar" && collection && (
@@ -298,7 +348,7 @@ export function AdminOperations({
                 </h2>
                 <p>
                   {fa
-                    ? "بازهٔ کاری را وارد کنید؛ زمان‌ها با مدت مشاوره و فاصلهٔ بین نوبت‌ها ساخته می‌شوند. تاریخ بر اساس تقویم میلادی و ساعت تهران است."
+                    ? "بازهٔ کاری را وارد کنید؛ زمان‌ها با مدت مشاوره و فاصلهٔ بین نوبت‌ها ساخته می‌شوند. تاریخ بر اساس تقویم شمسی جلالی و ساعت تهران است."
                     : "Times use the consultation duration and buffer, in Tehran time."}
                 </p>
                 <div className="field">
@@ -315,7 +365,7 @@ export function AdminOperations({
                 </div>
                 <div className="field">
                   <label htmlFor="batch-date">{fa ? "تاریخ" : "Date"}</label>
-                  <input id="batch-date" name="date" type="date" required />
+                  <JalaliDatePicker id="batch-date" name="date" required />
                 </div>
                 <div className="two-cols">
                   {["start", "end"].map((k, i) => (
@@ -329,7 +379,7 @@ export function AdminOperations({
                             ? "End"
                             : "Start"}
                       </label>
-                      <input id={`batch-${k}`} name={k} type="time" required />
+                      <PersianTimeInput id={`batch-${k}`} name={k} required />
                     </div>
                   ))}
                 </div>
@@ -380,8 +430,8 @@ export function AdminOperations({
                   ].map(([key, label]) => (
                     <div className="field" key={key}>
                       <label htmlFor={`slot-${key}`}>{label}</label>
-                      <input
-                        type="datetime-local"
+                      <JalaliDatePicker
+                        dateTime
                         name={key}
                         id={`slot-${key}`}
                         required
@@ -426,8 +476,8 @@ export function AdminOperations({
                             ? "End (Tehran)"
                             : "Start (Tehran)"}
                       </label>
-                      <input
-                        type="datetime-local"
+                      <JalaliDatePicker
+                        dateTime
                         name={key}
                         id={`blocked-${key}`}
                         required
@@ -457,12 +507,7 @@ export function AdminOperations({
               )}
               {collection.slots?.map((s) => (
                 <div className="summary-line" key={String(s.id)}>
-                  <strong>
-                    {new Date(String(s.startsAt)).toLocaleString(
-                      fa ? "fa-IR" : "en-US",
-                      { timeZone: "Asia/Tehran" },
-                    )}
-                  </strong>
+                  <strong>{formatJalali(String(s.startsAt), true)}</strong>
                   <button
                     className="text-link"
                     style={{ background: "none" }}
@@ -488,15 +533,8 @@ export function AdminOperations({
               {collection.blocked?.map((row) => (
                 <div className="summary-line" key={String(row.id)}>
                   <span>
-                    {new Date(String(row.startsAt)).toLocaleString(
-                      fa ? "fa-IR" : "en-US",
-                      { timeZone: "Asia/Tehran" },
-                    )}{" "}
-                    —{" "}
-                    {new Date(String(row.endsAt)).toLocaleString(
-                      fa ? "fa-IR" : "en-US",
-                      { timeZone: "Asia/Tehran" },
-                    )}
+                    {formatJalali(String(row.startsAt), true)} —{" "}
+                    {formatJalali(String(row.endsAt), true)}
                     <br />
                     {row.reason}
                   </span>
@@ -664,7 +702,11 @@ export function AdminOperations({
                           locale: a.locale,
                           title: f.get("title"),
                           description: f.get("description"),
-                          body: f.get("body"),
+                          body: withArticleCover(
+                            String(f.get("body") || ""),
+                            String(f.get("coverImage") || ""),
+                            String(f.get("title") || ""),
+                          ),
                         },
                         "POST",
                       );
@@ -697,8 +739,12 @@ export function AdminOperations({
                         />
                       </div>
                     ))}
+                    <ArticleImageField
+                      fa={fa}
+                      initialBody={String(a.body || "")}
+                    />
                     <button className="button button-small" disabled={busy}>
-                      {fa ? "ذخیره به‌صورت پیش‌نویس" : "Save as draft"}
+                      {fa ? "ذخیره و انتشار" : "Save & publish"}
                     </button>
                   </form>
                 </details>
@@ -725,29 +771,30 @@ export function AdminOperations({
                     {a.body}
                   </div>
                 </details>
-                {(!a.approvedAt || a.status !== "published") && (
+                {a.status !== "published" && (
                   <button
                     className="button button-small"
                     style={{ marginTop: 15 }}
                     disabled={busy}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          fa
-                            ? "آیا صحت علمی این متن و ترجمهٔ همین زبان را بررسی کرده‌اید و انتشار را تأیید می‌کنید؟"
-                            : "Have you medically reviewed this text and its translation for this locale, and approved publication?",
-                        )
-                      )
-                        void save(
-                          `articles/${a.id}/approve`,
-                          { locale: a.locale },
-                          "POST",
-                        );
-                    }}
+                    onClick={() =>
+                      void save(`articles/${a.id}`, { status: "published" })
+                    }
+                  >
+                    {fa ? "انتشار مقاله" : "Publish article"}
+                  </button>
+                )}
+                {a.status !== "archived" && (
+                  <button
+                    className="text-link"
+                    style={{ marginInlineStart: 16 }}
+                    disabled={busy}
+                    onClick={() =>
+                      void save(`articles/${a.id}`, { status: "archived" })
+                    }
                   >
                     {fa
-                      ? "تأیید علمی و انتشار این زبان"
-                      : "Approve & publish this language"}
+                      ? "حذف از سایت و بایگانی"
+                      : "Remove from site & archive"}
                   </button>
                 )}
               </div>

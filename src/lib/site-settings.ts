@@ -32,13 +32,25 @@ const schemas = {
     })
     .refine((v) => !v.enabled || v.patientScheduling || v.doctorScheduling),
   seo: z
-    .object({ title: localized.optional(), description: localized.optional() })
+    .object({
+      title: localized.optional(),
+      description: localized.optional(),
+      googleSiteVerification: z
+        .string()
+        .max(200)
+        .regex(/^[a-zA-Z0-9_-]*$/)
+        .optional(),
+      siteUrl: z
+        .union([z.literal(""), z.url().refine((v) => v.startsWith("https://"))])
+        .optional(),
+    })
     .passthrough(),
   contact: z
     .object({
       phone: z.string().max(100).optional(),
       email: z.union([z.literal(""), z.email()]).optional(),
       address: localized.optional(),
+      showOfficeAddress: z.boolean().optional(),
       hours: localized.optional(),
       education: localized.optional(),
       registration: localized.optional(),

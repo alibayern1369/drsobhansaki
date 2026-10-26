@@ -1,4 +1,5 @@
 "use client";
+import { formatJalali } from "@/lib/jalali";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { copy, type Locale } from "@/lib/content";
@@ -144,16 +145,7 @@ export function PatientDashboard({ locale }: { locale: Locale }) {
                   <span>
                     {fa ? "زمان قطعی (تهران)" : "Confirmed time (Tehran)"}
                   </span>
-                  <strong>
-                    {new Date(a.startsAt).toLocaleString(
-                      fa ? "fa-IR" : "en-US",
-                      {
-                        timeZone: "Asia/Tehran",
-                        dateStyle: "long",
-                        timeStyle: "short",
-                      },
-                    )}
-                  </strong>
+                  <strong>{formatJalali(a.startsAt, true)}</strong>
                 </div>
               )}
             <div className="summary-line">

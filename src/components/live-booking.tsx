@@ -1,4 +1,5 @@
 "use client";
+import { formatJalali } from "@/lib/jalali";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -171,11 +172,7 @@ export function LiveBooking({
               .filter((s) => s.consultationTypeId === consultation.id)
               .map((s) => (
                 <option key={s.id} value={s.id}>
-                  {new Date(s.startsAt).toLocaleString(fa ? "fa-IR" : "en-US", {
-                    timeZone: "Asia/Tehran",
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })}
+                  {formatJalali(s.startsAt, true)}
                 </option>
               ))}
           </select>

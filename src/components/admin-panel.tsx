@@ -1,4 +1,6 @@
 "use client";
+import { ArticleImageField, withArticleCover } from "./article-image-field";
+import { formatJalali } from "@/lib/jalali";
 import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
@@ -8,6 +10,7 @@ import { AdminChallenge } from "./admin-login";
 import { AdminSecuritySettings } from "./admin-security-settings";
 import { AdminSiteSettings, type ContentRow } from "./admin-site-settings";
 import { ReceiptStorageSettings } from "./receipt-storage-settings";
+import { ConsultationFees } from "./consultation-fees";
 import { adminLabel } from "@/lib/admin-labels";
 type AdminData = {
   role: string;
@@ -181,7 +184,7 @@ export function AdminPanel({
     ["contact", "اطلاعات تماس", "Contact details", "phone"],
     ["policies", "حریم خصوصی و شرایط", "Privacy & terms", "shield"],
     ["seo", "تنظیمات SEO", "SEO settings", "globe"],
-    ["roles", "کاربران و نقش‌ها", "Users & roles", "shield"],
+    ["roles", "مدیران و کارکنان", "Administrators & staff", "shield"],
     ["audit", "گزارش امنیتی", "Security logs", "lock"],
     ["settings", "تنظیمات سامانه", "System settings", "settings"],
     ["receipt-storage", "رسیدها و نگهداری", "Receipts & retention", "shield"],
@@ -370,12 +373,7 @@ export function AdminPanel({
                   {data.audit.slice(0, 8).map((row) => (
                     <div className="summary-line" key={row.id}>
                       <strong>{auditLabel(row.action, fa)}</strong>
-                      <time>
-                        {new Date(row.createdAt).toLocaleString(
-                          fa ? "fa-IR" : "en-US",
-                          { timeZone: "Asia/Tehran" },
-                        )}
-                      </time>
+                      <time>{formatJalali(row.createdAt, true)}</time>
                     </div>
                   ))}
                   {!data.audit.length && (
@@ -386,6 +384,18 @@ export function AdminPanel({
             )}
             {tab === "appointments" && (
               <>
+                <div className="notice booking-guide">
+                  <h2>
+                    {fa
+                      ? "راهنمای نوبت و پرداخت"
+                      : "Booking and payment workflow"}
+                  </h2>
+                  <p>
+                    {fa
+                      ? "۱. بیمار نوع مشاوره و روش هماهنگی زمان را انتخاب می‌کند. ۲. مبلغ اعلام‌شده را واریز و رسید را بارگذاری می‌کند. ۳. از «رسیدها و زمان‌بندی» تصویر رسید را ببینید و واریز را جداگانه در حساب بانک تطبیق دهید. ۴. با تأیید واریز، نوبت دارای زمان رزروشده قطعی می‌شود؛ اگر زمان مشخص نشده باشد، در انتظار زمان‌بندی می‌ماند و باید زمان را تعیین کنید. ارسال رسید به‌تنهایی نوبت را قطعی نمی‌کند. لغو نوبت نیز به‌معنای استرداد خودکار وجه نیست."
+                      : "The patient selects a consultation, transfers payment and uploads a receipt. Open Receipts & scheduling and match the deposit independently in your bank account before approving it. A reserved time is then confirmed; otherwise assign a time. Cancelling an appointment does not automatically refund a transfer."}
+                  </p>
+                </div>
                 <div className="two-cols">
                   <div className="field">
                     <label htmlFor="appointment-search">
@@ -554,84 +564,12 @@ export function AdminPanel({
             )}
             {tab === "consultations" &&
               data.consultations.map((c) => (
-                <form
-                  className="content-panel"
-                  style={{ marginBottom: 20 }}
+                <ConsultationFees
                   key={c.id}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    void save(`consultations/${c.id}`, {
-                      priceRial: Number(f.get("price")),
-                      durationMinutes: Number(f.get("duration")),
-                      bufferMinutes: Number(f.get("buffer")),
-                      enabled: f.get("enabled") === "on",
-                    });
-                  }}
-                >
-                  <h2>
-                    {c.key === "phone"
-                      ? fa
-                        ? "مشاوره تلفنی"
-                        : "Phone consultation"
-                      : fa
-                        ? "مشاوره متنی"
-                        : "Text consultation"}
-                  </h2>
-                  <div className="two-cols">
-                    <div className="field">
-                      <label htmlFor={`price-${c.id}`}>
-                        {fa ? "تعرفه (ریال)" : "Price (IRR)"}
-                      </label>
-                      <input
-                        id={`price-${c.id}`}
-                        name="price"
-                        type="number"
-                        required
-                        min="0"
-                        defaultValue={c.priceRial}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`duration-${c.id}`}>
-                        {fa ? "مدت (دقیقه)" : "Duration (minutes)"}
-                      </label>
-                      <input
-                        id={`duration-${c.id}`}
-                        name="duration"
-                        type="number"
-                        required
-                        min="5"
-                        max="180"
-                        defaultValue={c.durationMinutes}
-                      />
-                    </div>
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`buffer-${c.id}`}>
-                      {fa ? "فاصله بین نوبت‌ها (دقیقه)" : "Buffer (minutes)"}
-                    </label>
-                    <input
-                      id={`buffer-${c.id}`}
-                      name="buffer"
-                      type="number"
-                      required
-                      min="0"
-                      defaultValue={c.bufferMinutes}
-                    />
-                  </div>
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      name="enabled"
-                      defaultChecked={c.enabled}
-                    />
-                    {fa ? "فعال برای رزرو" : "Available for booking"}
-                  </label>
-                  <button className="button button-small" disabled={busy}>
-                    {fa ? "ذخیره تغییرات" : "Save changes"}
-                  </button>
-                </form>
+                  item={c}
+                  locale={locale}
+                  onSaved={load}
+                />
               ))}
             {tab === "platforms" &&
               data.platforms.map((p) => (
@@ -728,12 +666,7 @@ export function AdminPanel({
                   <tbody>
                     {data.audit.map((row) => (
                       <tr key={row.id}>
-                        <td>
-                          {new Date(row.createdAt).toLocaleString(
-                            fa ? "fa-IR" : "en-US",
-                            { timeZone: "Asia/Tehran" },
-                          )}
-                        </td>
+                        <td>{formatJalali(row.createdAt, true)}</td>
                         <td>{auditLabel(row.action, fa)}</td>
                         <td>{auditLabel(row.entityType, fa)}</td>
                         <td dir="ltr">{row.entityId || "—"}</td>
@@ -783,7 +716,7 @@ function auditLabel(action: string, fa: boolean) {
     bank: "حساب بانکی",
     create: "ایجاد",
     article: "مقاله",
-    save_draft: "ذخیره پیش‌نویس",
+    save_draft: "ذخیره و انتشار",
     approve: "تأیید انتشار",
     auth: "ورود",
     mfa: "احراز هویت",
@@ -834,7 +767,11 @@ function ArticleEditor({
             slug: f.get("slug"),
             locale: f.get("locale"),
             title: f.get("title"),
-            body: f.get("body"),
+            body: withArticleCover(
+              String(f.get("body") || ""),
+              String(f.get("coverImage") || ""),
+              String(f.get("title") || ""),
+            ),
             description: f.get("description"),
           },
           "POST",
@@ -843,8 +780,8 @@ function ArticleEditor({
     >
       <div className="notice warn" style={{ marginBottom: 20 }}>
         {fa
-          ? "مطالب به‌صورت پیش‌نویس ذخیره می‌شوند. انتشار فقط پس از بررسی علمی و تأیید صریح پزشک مجاز است."
-          : "Articles are saved as drafts. Publication requires explicit medical review and approval."}
+          ? "مقاله پس از ذخیره منتشر می‌شود. عنوان، توضیح جستجو و متن را کامل کنید. برای تیتر از ## و برای تصویر از ![توضیح تصویر](/مسیر-تصویر) استفاده کنید. امکان توقف انتشار از فهرست مقالات وجود دارد."
+          : "Saving publishes this educational article. Use ## for headings and Markdown image links for illustrations. You can unpublish it from the article list."}
       </div>
       {[
         ["title", fa ? "عنوان مقاله" : "Article title"],
@@ -869,8 +806,9 @@ function ArticleEditor({
         </label>
         <textarea id="article-body" name="body" required minLength={20} />
       </div>
+      <ArticleImageField fa={fa} />
       <button className="button" disabled={busy}>
-        {fa ? "ذخیره پیش‌نویس" : "Save draft"}
+        {fa ? "ذخیره و انتشار" : "Save & publish"}
         <Icon name="file" size={17} />
       </button>
     </form>

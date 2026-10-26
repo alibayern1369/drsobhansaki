@@ -1,4 +1,10 @@
 const labels: Record<string, string> = {
+  super_admin: "مدیر کل",
+  doctor: "پزشک",
+  staff: "کارمند مجاز",
+  patient: "بیمار",
+  signature_verified_not_malware_scanned:
+    "قالب فایل معتبر؛ بررسی واریز لازم است",
   pending: "در انتظار",
   draft: "پیش‌نویس",
   published: "منتشرشده",

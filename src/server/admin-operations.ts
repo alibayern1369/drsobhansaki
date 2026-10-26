@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, gt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
@@ -51,8 +51,14 @@ export async function adminOperations(
             phone: s.users.phone,
             role: s.users.role,
             disabled: s.users.disabled,
+            username: s.adminCredentials.username,
           })
           .from(s.users)
+          .leftJoin(
+            s.adminCredentials,
+            eq(s.adminCredentials.userId, s.users.id),
+          )
+          .where(ne(s.users.role, "patient"))
           .limit(200),
       );
     if (method === "PUT" && path[2]) {
@@ -437,15 +443,21 @@ export async function adminOperations(
   if (key === "articles" && method === "PUT" && path[2]) {
     privileged();
     const id = uuid.parse(path[2]);
-    z.object({ status: z.literal("draft") }).parse(await request.json());
+    const input = z
+      .object({ status: z.enum(["draft", "published", "archived"]) })
+      .parse(await request.json());
     await db.transaction(async (tx) => {
       await tx
         .update(s.articles)
-        .set({ status: "draft", updatedAt: new Date() })
+        .set({
+          status: input.status,
+          ...(input.status === "published" ? { publishedAt: new Date() } : {}),
+          updatedAt: new Date(),
+        })
         .where(eq(s.articles.id, id));
       await tx.insert(s.auditLogs).values({
         actorId: user.id,
-        action: "article.unpublish",
+        action: `article.${input.status}`,
         entityType: "article",
         entityId: id,
       });

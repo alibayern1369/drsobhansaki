@@ -74,8 +74,8 @@ export default async function Page({
           </h2>
           <div className="notice">
             {fa
-              ? "توضیحات علائم، عوامل خطر و پرسش‌های پزشکی در حال بررسی علمی هستند و پس از تأیید پزشک منتشر می‌شوند."
-              : "Information on symptoms, risk factors and medical FAQs is under review and will be published after approval by the doctor."}
+              ? "برای آشنایی با علائم، پیشگیری و آماده‌شدن برای مشاوره، مقالات مجله سلامت را بخوانید. ارزیابی و راهنمایی اختصاصی به شرایط هر فرد بستگی دارد."
+              : "Read the health journal for educational information on prevention and preparing for a consultation."}
           </div>
           <h2>{fa ? "مطالب مرتبط" : "Related articles"}</h2>
           <p>{t.journalEmptyDesc}</p>

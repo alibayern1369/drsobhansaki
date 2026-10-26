@@ -1,4 +1,5 @@
 ﻿"use client";
+import { JalaliDatePicker } from "./jalali-date-picker";
 import { useState } from "react";
 import Link from "next/link";
 import { copy, services, type Locale } from "@/lib/content";
@@ -203,14 +204,13 @@ export function BookingForm({
                       ? "تاریخ پیشنهادی (قطعی نیست)"
                       : "Preferred date (not confirmed)"}
                   </label>
-                  <input
-                    type="date"
+                  <JalaliDatePicker
                     id="date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    min={new Date().toLocaleDateString("en-CA", {
+                    onChange={setDate}
+                    min={new Intl.DateTimeFormat("en-CA", {
                       timeZone: "Asia/Tehran",
-                    })}
+                    }).format(new Date())}
                     required
                   />
                   <small>{t.availabilityDesc}</small>
@@ -312,7 +312,7 @@ export function BookingForm({
           <div className="summary-line">
             <span>{fa ? "تعرفه" : "Price"}</span>
             <strong>
-              {fa ? "در انتظار تأیید پزشک" : "Awaiting confirmation"}
+              {fa ? "در انتظار هماهنگی زمان" : "Awaiting confirmation"}
             </strong>
           </div>
           <div className="notice">

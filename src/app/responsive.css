@@ -179,7 +179,7 @@
     gap: 8px;
   }
   .consult-floating {
-    bottom: 100px;
+    bottom: 155px;
     inset-inline-end: -15px;
   }
   .doctor-caption {
@@ -436,7 +436,7 @@
     padding: 10px 13px;
   }
   .consult-floating {
-    bottom: 88px;
+    bottom: 140px;
     inset-inline-end: -22px;
     padding: 11px 13px;
   }
@@ -933,6 +933,7 @@
   }
   .consult-floating {
     inset-inline-end: -12px;
+    bottom: 170px;
   }
   .philosophy h2 {
     font-size: 24px;

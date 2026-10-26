@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, isNotNull, lte, desc } from "drizzle-orm";
+import { and, eq, inArray, lte, desc } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   localizedContent,
@@ -50,6 +50,7 @@ export const publishedArticles = cache(async (locale: Locale) => {
       id: articles.id,
       slug: articles.slug,
       title: articleTranslations.title,
+      body: articleTranslations.body,
       description: articleTranslations.description,
       publishedAt: articles.publishedAt,
       approvedAt: articleTranslations.approvedAt,
@@ -67,7 +68,6 @@ export const publishedArticles = cache(async (locale: Locale) => {
         eq(articles.status, "published"),
         eq(articleTranslations.locale, locale),
         eq(articles.id, articleTranslations.articleId),
-        isNotNull(articleTranslations.approvedAt),
         lte(articles.publishedAt, new Date()),
       ),
     )
@@ -97,7 +97,6 @@ export const publishedArticle = cache(async (locale: Locale, slug: string) => {
       and(
         eq(articles.slug, slug),
         eq(articles.status, "published"),
-        isNotNull(articleTranslations.approvedAt),
         lte(articles.publishedAt, new Date()),
       ),
     )

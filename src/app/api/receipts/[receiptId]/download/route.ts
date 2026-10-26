@@ -10,7 +10,10 @@ export async function GET(
 ) {
   try {
     const { receiptId } = await params;
-    return await downloadReceipt(z.uuid().parse(receiptId));
+    const response = await downloadReceipt(z.uuid().parse(receiptId));
+    if (new URL(request.url).searchParams.get("view") === "1" && response.ok)
+      response.headers.set("Content-Disposition", "inline");
+    return response;
   } catch (error) {
     return receiptError(error, request);
   }

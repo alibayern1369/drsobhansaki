@@ -1,3 +1,5 @@
+import { legalContent } from "@/lib/legal-content";
+import { ArticleContent } from "@/components/article-content";
 import {
   publicHomeContent,
   publicSetting,
@@ -30,7 +32,17 @@ export async function generateMetadata({
   const { locale, page } = await params;
   const title = titles[page as keyof typeof titles]?.[locale === "fa" ? 0 : 1];
   return {
-    title,
+    title: `${title} | ${locale === "fa" ? "دکتر سبحان ساکی" : "Dr. Sobhan Saki"}`,
+    description:
+      page === "privacy"
+        ? locale === "fa"
+          ? "حریم خصوصی وب‌سایت دکتر سبحان ساکی؛ نحوه استفاده از شماره همراه، سوابق نوبت و رسید پرداخت، دسترسی مجاز و درخواست اصلاح یا حذف اطلاعات."
+          : "Privacy policy for patient authentication, appointment information, payment receipts, retention and access requests."
+        : page === "terms"
+          ? locale === "fa"
+            ? "شرایط مشاوره آنلاین دکتر سبحان ساکی؛ ثبت نوبت، تعرفه، تأیید واریز، تغییر زمان، لغو، استرداد و حدود خدمات غیرحضوری."
+            : "Terms for online consultations, booking, payment verification, cancellation, refunds and remote care."
+          : undefined,
     alternates: {
       canonical: `/${locale}/${page}`,
       languages: { fa: `/fa/${page}`, en: `/en/${page}` },
@@ -111,13 +123,6 @@ export default async function Page({
                         fill
                         sizes="(max-width:700px) 90vw, 40vw"
                       />
-                      <span className="photo-label">
-                        {branding?.doctorImageUrl
-                          ? t.name
-                          : fa
-                            ? "تصویر نمایشی"
-                            : "Illustrative image"}
-                      </span>
                     </div>
                     <div className="about-blue-block">
                       <Icon name="doctor" size={40} />
@@ -150,28 +155,32 @@ export default async function Page({
                         "Consultation interests",
                         "Contact information",
                       ]
-                  ).map((v, i) => (
-                    <div key={v}>
-                      <h3>{v}</h3>
-                      <p>
-                        {[
-                          localText(contact?.education) ||
-                            doctorProfile.education[locale],
-                          localText(contact?.registration) ||
-                            doctorProfile.registration[locale],
-                          localText(contact?.interests),
-                          String(contact?.phone || ""),
-                        ][i] ||
-                          (i === 2
-                            ? fa
-                              ? "پزشکی عمومی؛ پایش قند، فشار و چربی خون، ارزیابی اولیه تیروئید، کبد چرب و سلامت شغلی."
-                              : "General practice; blood sugar, pressure and lipids, initial thyroid assessment, fatty liver and occupational health."
-                            : fa
-                              ? "پس از تأیید پزشک تکمیل می‌شود."
-                              : "To be completed after verification by the doctor.")}
-                      </p>
-                    </div>
-                  ))}
+                  ).map((v, i) =>
+                    i === 1 &&
+                    (contact?.showOfficeAddress !== true ||
+                      !localText(contact?.address)) ? null : (
+                      <div key={v}>
+                        <h3>{v}</h3>
+                        <p>
+                          {[
+                            localText(contact?.education) ||
+                              doctorProfile.education[locale],
+                            localText(contact?.registration) ||
+                              doctorProfile.registration[locale],
+                            localText(contact?.interests),
+                            String(contact?.phone || ""),
+                          ][i] ||
+                            (i === 2
+                              ? fa
+                                ? "پزشکی عمومی؛ پایش قند، فشار و چربی خون، ارزیابی اولیه تیروئید، کبد چرب و سلامت شغلی."
+                                : "General practice; blood sugar, pressure and lipids, initial thyroid assessment, fatty liver and occupational health."
+                              : fa
+                                ? "اطلاعات به‌زودی تکمیل می‌شود."
+                                : "To be completed after verification by the doctor.")}
+                        </p>
+                      </div>
+                    ),
+                  )}
                 </div>
                 <div className="availability-card">
                   <h3>{t.availability}</h3>
@@ -191,8 +200,8 @@ export default async function Page({
                     <p>{t.journalEmptyDesc}</p>
                     <p>
                       {fa
-                        ? "محتوای تأییدنشده یا ترجمه‌های بررسی‌نشده در این بخش نمایش داده نمی‌شوند."
-                        : "Unapproved content and unreviewed translations are not published here."}
+                        ? "مقالات آموزشی سلامت و طب کار را در این بخش بخوانید."
+                        : "Read educational articles about health and occupational medicine."}
                     </p>
                     <Link href={`/${locale}/services`} className="button">
                       {t.services}
@@ -216,19 +225,23 @@ export default async function Page({
                           "Email",
                           "Office hours",
                         ]
-                    ).map((v, i) => (
-                      <div key={v}>
-                        <h3>{v}</h3>
-                        <p>
-                          {[
-                            String(contact?.phone || ""),
-                            localText(contact?.address),
-                            String(contact?.email || ""),
-                            localText(contact?.hours),
-                          ][i] || (fa ? "در انتظار تکمیل" : "Not provided")}
-                        </p>
-                      </div>
-                    ))}
+                    ).map((v, i) =>
+                      i === 1 &&
+                      (contact?.showOfficeAddress !== true ||
+                        !localText(contact?.address).trim()) ? null : (
+                        <div key={v}>
+                          <h3>{v}</h3>
+                          <p>
+                            {[
+                              String(contact?.phone || ""),
+                              localText(contact?.address),
+                              String(contact?.email || ""),
+                              localText(contact?.hours),
+                            ][i] || (fa ? "در انتظار تکمیل" : "Not provided")}
+                          </p>
+                        </div>
+                      ),
+                    )}
                   </div>
                   <p className="notice warn">{t.urgent}</p>
                 </div>
@@ -247,69 +260,13 @@ export default async function Page({
                 </aside>
               </div>
             )}
-            {page === "privacy" && localText(policies?.privacy) && (
-              <div className="content-panel" style={{ whiteSpace: "pre-wrap" }}>
-                {localText(policies?.privacy)}
-              </div>
-            )}
-            {page === "privacy" && !localText(policies?.privacy) && (
-              <div className="content-panel">
-                <div className="notice warn" style={{ marginBottom: 20 }}>
-                  {fa
-                    ? "پیش‌نویس سیاست حریم خصوصی؛ پیش از پردازش اطلاعات واقعی بیمار باید توسط مسئول سامانه بررسی و نهایی شود."
-                    : "Draft privacy policy. The operator must review and finalize it before processing real patient information."}
-                </div>
-                <h2>
-                  {fa ? "احترام به اطلاعات شما" : "Respecting your information"}
-                </h2>
-                <p>
-                  {fa
-                    ? "تنها اطلاعات ضروری برای احراز هویت، هماهنگی نوبت و بررسی پرداخت دریافت می‌شود. دسترسی به پرونده و رسید پرداخت باید محدود به بیمار و کارکنان مجاز باشد."
-                    : "Only information necessary for authentication, scheduling and payment verification is collected. Records and receipts must be restricted to the patient and authorized staff."}
-                </p>
-                <h2>
-                  {fa ? "پیام‌رسان‌های خارجی" : "External messaging services"}
-                </h2>
-                <p>
-                  {fa
-                    ? "استفاده از واتساپ، تلگرام یا بله نیازمند رضایت شماست و سیاست‌های همان سرویس نیز اعمال می‌شود. اطلاعات حساس را تنها در صورت ضرورت و با راهنمایی پزشک ارسال کنید."
-                    : "WhatsApp, Telegram or Bale require your consent and are subject to their own privacy policies. Share sensitive information only when necessary and with the doctor’s guidance."}
-                </p>
-                <h2>
-                  {fa ? "نگهداری و حذف اطلاعات" : "Retention and deletion"}
-                </h2>
-                <p>
-                  {fa
-                    ? "مدت نگهداری، محل ذخیره‌سازی، راه تماس مسئول داده و روند درخواست دسترسی یا حذف باید پیش از شروع فعالیت تعیین و در این صفحه درج شوند."
-                    : "Retention periods, storage location, the data contact and access or deletion procedures must be determined and listed here before launch."}
-                </p>
-              </div>
-            )}
-            {page === "terms" && localText(policies?.terms) && (
-              <div className="content-panel" style={{ whiteSpace: "pre-wrap" }}>
-                {localText(policies?.terms)}
-              </div>
-            )}
-            {page === "terms" && !localText(policies?.terms) && (
-              <div className="content-panel">
-                <div className="notice warn" style={{ marginBottom: 20 }}>
-                  {fa
-                    ? "پیش‌نویس شرایط استفاده؛ نیازمند تأیید نهایی مسئول سامانه."
-                    : "Draft terms, pending approval by the operator."}
-                </div>
-                <h2>{fa ? "دامنهٔ مشاوره" : "Consultation scope"}</h2>
-                <p>{t.urgent}</p>
-                <p>
-                  {fa
-                    ? "پزشک ممکن است برای ارزیابی دقیق‌تر، معاینه حضوری، آزمایش یا ارجاع را توصیه کند. هیچ نتیجه درمانی تضمین نمی‌شود."
-                    : "The doctor may recommend an in-person examination, tests or referral. Treatment outcomes are not guaranteed."}
-                </p>
-                <h2>{fa ? "رزرو و پرداخت" : "Booking and payment"}</h2>
-                <p>
-                  {fa
-                    ? "ارسال رسید به‌تنهایی اثبات پرداخت نیست. نوبت پس از تأیید مستقل واریز و تعیین زمان قطعی می‌شود. تعرفه، مدت مشاوره و قوانین لغو و استرداد باید پیش از پرداخت به شما نمایش داده شوند."
-                    : "A receipt alone is not proof of payment. An appointment requires independent transfer verification and confirmed scheduling. Pricing, duration, cancellation and refund rules must be shown before payment."}
-                </p>
+            {(page === "privacy" || page === "terms") && (
+              <div className="content-panel legal-content">
+                <ArticleContent
+                  body={
+                    localText(policies?.[page]) || legalContent[page][locale]
+                  }
+                />
               </div>
             )}
             {page === "dashboard" && (

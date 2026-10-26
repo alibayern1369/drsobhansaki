@@ -1,3 +1,4 @@
+import { siteOrigin, seoDefaults } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/lib/content";
 import { Header } from "@/components/header";
@@ -22,20 +23,26 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
   const branding = await publicSetting("branding");
   const seo = await publicSetting("seo");
   const seoTitles = seo?.title as Record<string, string> | undefined;
   const descriptions = seo?.description as Record<string, string> | undefined;
   return {
-    metadataBase: new URL(base),
-    description: descriptions?.[locale] || undefined,
+    metadataBase: new URL(siteOrigin(seo?.siteUrl)),
+    verification: {
+      google:
+        typeof seo?.googleSiteVerification === "string"
+          ? seo.googleSiteVerification
+          : undefined,
+    },
+    twitter: { card: "summary_large_image" },
+    description:
+      descriptions?.[locale] ||
+      seoDefaults[locale === "en" ? "en" : "fa"].description,
     title: {
       absolute:
-        seoTitles?.[locale] ||
-        (locale === "en"
-          ? "Dr. Sobhan Saki | Your wellbeing. Our priority."
-          : "دکتر سبحان ساکی | حال خوب شما، اولویت ماست"),
+        seoTitles?.[locale] || seoDefaults[locale === "en" ? "en" : "fa"].title,
     },
     alternates: {
       canonical: `/${locale}`,
@@ -60,7 +67,12 @@ export async function generateMetadata({
       siteName: "Dr. Sobhan Saki",
       images: assetUrl(branding?.socialImageUrl)
         ? [assetUrl(branding?.socialImageUrl)!]
-        : undefined,
+        : [
+            {
+              url: "/images/doctor.jpg",
+              alt: locale === "fa" ? "دکتر سبحان ساکی" : "Dr. Sobhan Saki",
+            },
+          ],
     },
   };
 }

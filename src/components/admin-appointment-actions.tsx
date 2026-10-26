@@ -1,4 +1,6 @@
 "use client";
+import Image from "next/image";
+import { formatJalali } from "@/lib/jalali";
 import { useState } from "react";
 import { type Locale } from "@/lib/content";
 import { ReceiptRetentionControls } from "./receipt-storage-settings";
@@ -23,6 +25,7 @@ export function AdminAppointmentActions({
     {
       id: string;
       scanStatus: string;
+      mimeType: string;
       retentionHold: boolean;
       legalRetentionHold: boolean;
       disputeActive: boolean;
@@ -38,7 +41,7 @@ export function AdminAppointmentActions({
     }[]
   >([]);
   const [slot, setSlot] = useState("");
-  const [url, setUrl] = useState("");
+  const [loaded, setLoaded] = useState(false);
   async function call(path: string, value: unknown) {
     setBusy(true);
     try {
@@ -61,6 +64,7 @@ export function AdminAppointmentActions({
     }
   }
   async function details() {
+    setBusy(true);
     try {
       const [r, c] = await Promise.all([
         fetch(`/api/admin/payment-details/${id}`, {
@@ -73,11 +77,14 @@ export function AdminAppointmentActions({
       const [rd, cd] = await Promise.all([r.json(), c.json()]);
       if (!r.ok) throw new Error(rd.message);
       if (!c.ok) throw new Error(cd.message);
+      setLoaded(true);
       setReceipts(rd);
       setSlots(cd.slots || []);
       setMessage(fa ? "جزئیات دریافت شد." : "Details loaded.");
     } catch (e) {
       setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
   return (
@@ -85,6 +92,7 @@ export function AdminAppointmentActions({
       <button
         className="text-link"
         style={{ background: "none" }}
+        disabled={busy}
         onClick={details}
       >
         {fa ? "رسیدها و زمان‌بندی" : "Receipts & scheduling"}
@@ -96,25 +104,36 @@ export function AdminAppointmentActions({
               {fa ? "رسید پرداخت" : "Payment receipt"} ·{" "}
               {adminLabel(r.scanStatus, fa)}
             </span>
-            <button
+            <a
               className="text-link"
-              style={{ background: "none" }}
-              onClick={async () => {
-                try {
-                  const res = await fetch(`/api/receipts/${r.id}`, {
-                    headers: { "Accept-Language": locale },
-                  });
-                  const d = await res.json();
-                  if (!res.ok) throw new Error(d.message);
-                  setUrl(d.url);
-                } catch (e) {
-                  setMessage((e as Error).message);
-                }
-              }}
+              href={`/api/receipts/${r.id}/download?view=1`}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              {fa ? "دسترسی امن به رسید" : "Access private receipt"}
-            </button>
+              {fa
+                ? r.mimeType === "application/pdf"
+                  ? "مشاهده فایل PDF"
+                  : "مشاهده رسید در اندازه کامل"
+                : "Open full receipt"}
+            </a>{" "}
           </div>
+          {r.mimeType?.startsWith("image/") && (
+            <a
+              href={`/api/receipts/${r.id}/download?view=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Image
+                unoptimized
+                width={800}
+                height={1000}
+                className="receipt-preview"
+                src={`/api/receipts/${r.id}/download?view=1`}
+                alt={fa ? "رسید ارسالی بیمار" : "Patient payment receipt"}
+                loading="lazy"
+              />
+            </a>
+          )}
           <ReceiptRetentionControls
             receiptId={r.id}
             locale={locale}
@@ -122,16 +141,12 @@ export function AdminAppointmentActions({
           />
         </div>
       ))}
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="button button-small"
-          style={{ marginTop: 10 }}
-        >
-          {fa ? "دانلود رسید با بررسی دسترسی" : "Download with authorization"}
-        </a>
+      {loaded && !receipts.length && (
+        <p className="notice">
+          {fa
+            ? "هنوز رسیدی برای این نوبت ارسال نشده است."
+            : "No receipt has been submitted for this appointment."}
+        </p>
       )}
       {["awaiting_scheduling", "confirmed"].includes(status) &&
         slots.length > 0 && (
@@ -162,10 +177,7 @@ export function AdminAppointmentActions({
                   )
                   .map((s) => (
                     <option key={s.id} value={s.id}>
-                      {new Date(s.startsAt).toLocaleString(
-                        fa ? "fa-IR" : "en-US",
-                        { timeZone: "Asia/Tehran" },
-                      )}
+                      {formatJalali(s.startsAt, true)}
                     </option>
                   ))}
               </select>

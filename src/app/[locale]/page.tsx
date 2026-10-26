@@ -1,3 +1,4 @@
+import { siteOrigin } from "@/lib/seo";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/lib/content";
 import { Home } from "@/components/home";
@@ -15,11 +16,24 @@ export default async function Page({
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const nonce = (await headers()).get("x-nonce") || undefined;
+  const origin = siteOrigin((await publicSetting("seo"))?.siteUrl);
   const data = {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    about: {
+      "@type": "Person",
+      "@id": `${origin}/#doctor`,
+      name: "سبحان ساکی",
+      alternateName: ["Sobhan Saki", "دکتر سبحان ساکی", "Dr. Sobhan Saki"],
+      jobTitle: "پزشک و دستیار تخصصی طب کار و بیماری‌های شغلی",
+      identifier: "171341",
+      affiliation: {
+        "@type": "CollegeOrUniversity",
+        name: "Iran University of Medical Sciences",
+      },
+    },
     name: locale === "fa" ? "دکتر سبحان ساکی" : "Dr. Sobhan Saki",
-    url: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+    url: origin,
     inLanguage: locale,
   };
   return (

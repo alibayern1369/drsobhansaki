@@ -423,7 +423,7 @@ svg {
   margin-inline-start: 7px;
 }
 .consult-floating {
-  bottom: 97px;
+  bottom: 165px;
   inset-inline-end: -30px;
   animation: float 7s 2s ease-in-out infinite;
 }
@@ -1182,4 +1182,233 @@ h2 {
 }
 [dir="ltr"] .care-card h3 {
   font-size: 21px;
+}
+
+/* Persian calendar and administration */
+.jalali-picker {
+  position: relative;
+  width: 100%;
+}
+.jalali-display {
+  cursor: pointer;
+  caret-color: transparent;
+}
+.jalali-popover {
+  position: absolute;
+  z-index: 80;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(340px, calc(100vw - 48px));
+  padding: 16px;
+  background: #fff;
+  color: #1c3048;
+  border: 1px solid #dce5ef;
+  border-radius: 18px;
+  box-shadow: 0 18px 60px #122b4726;
+}
+.jalali-navigation {
+  display: grid;
+  grid-template-columns: 32px 1fr 90px 32px;
+  gap: 5px;
+  align-items: center;
+}
+.jalali-navigation select {
+  padding: 5px;
+  min-width: 0;
+}
+.jalali-popover button {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  border-radius: 8px;
+  min-height: 34px;
+}
+.jalali-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+  text-align: center;
+}
+.jalali-weekday {
+  font-size: 12px;
+  color: #75849b;
+  padding: 5px;
+}
+.jalali-grid button:hover,
+.jalali-grid .today {
+  background: #edf5ff;
+}
+.jalali-grid .selected {
+  background: #0866ff;
+  color: white;
+}
+.jalali-grid button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.jalali-toolbar {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #edf0f4;
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.jalali-time input {
+  padding: 8px;
+}
+.jalali-time small {
+  display: block;
+}
+.staff-account {
+  border: 1px solid #e0e7ef;
+  background: white;
+  border-radius: 16px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+.staff-account summary {
+  padding: 20px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.staff-account form {
+  border: 0 !important;
+  margin: 0 !important;
+}
+.receipt-preview {
+  display: block;
+  width: 100%;
+  max-width: 500px;
+  max-height: 500px;
+  object-fit: contain;
+  border: 1px solid #dce5ef;
+  background: #f4f7fb;
+  border-radius: 12px;
+  margin: 16px 0;
+}
+.booking-guide {
+  margin-bottom: 24px;
+}
+.booking-guide h2 {
+  font-size: 18px;
+}
+.fee-editor {
+  margin-bottom: 20px;
+}
+.article-content {
+  line-height: 2.2;
+  font-size: 15px;
+}
+.article-content h2 {
+  font-size: 23px;
+  margin: 30px 0 12px;
+  scroll-margin-top: 100px;
+}
+.article-content h3 {
+  margin: 22px 0 10px;
+}
+.article-content p {
+  margin-bottom: 18px;
+  white-space: pre-line;
+}
+.article-content li {
+  margin-bottom: 8px;
+}
+.article-content ul {
+  padding-inline-start: 24px;
+}
+.article-cover {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200/630;
+  object-fit: cover;
+  border-radius: 16px;
+  margin: 0 0 20px;
+}
+.article-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 18px;
+  background: #f3f7fc;
+  border-radius: 12px;
+}
+.article-toc a {
+  color: #0866ff;
+  font-size: 12px;
+  padding: 5px;
+}
+.article-byline {
+  color: #66768b;
+  font-size: 12px;
+}
+.legal-content {
+  max-width: 960px;
+  margin: 0 auto 40px;
+}
+.article-content a {
+  overflow-wrap: anywhere;
+  color: #0866ff;
+}
+
+.patient-table {
+  border: 1px solid #e0e7ef;
+  border-radius: 16px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+.patient-table-heading,
+.patient-table-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr 85px;
+  gap: 16px;
+  align-items: center;
+  padding: 18px 22px;
+}
+.patient-table-heading {
+  background: #eef4fc;
+  font-size: 12px;
+  color: #60718b;
+}
+.patient-table-row {
+  background: white;
+  border-top: 1px solid #edf1f6;
+  font-size: 13px;
+}
+.patient-table-row strong {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.patient-avatar {
+  display: inline-flex;
+  padding: 10px;
+  background: #edf5ff;
+  color: #0866ff;
+  border-radius: 50%;
+}
+@media (max-width: 650px) {
+  .patient-table-heading {
+    display: none;
+  }
+  .patient-table-row {
+    grid-template-columns: 1fr 1fr;
+    padding: 16px;
+    gap: 12px;
+  }
+  .patient-table-row strong {
+    grid-column: 1 / -1;
+  }
+  .patient-table-row .pill {
+    justify-self: start;
+  }
+  .patient-table-row > span {
+    font-size: 12px;
+  }
 }

@@ -369,10 +369,12 @@ async function dispatch(request: Request, segments: string[], method: string) {
         })
         .parse(await request.json());
       await db.transaction(async (tx) => {
-        await tx
+        const updated = await tx
           .update(s.consultationTypes)
           .set({ ...data, updatedAt: new Date() })
-          .where(eq(s.consultationTypes.id, uuid.parse(segments[2])));
+          .where(eq(s.consultationTypes.id, uuid.parse(segments[2])))
+          .returning({ id: s.consultationTypes.id });
+        if (!updated.length) throw new AppError(404, "NOT_FOUND");
         await tx.insert(s.auditLogs).values({
           actorId: user.id,
           action: "consultation.update",
@@ -459,17 +461,36 @@ async function dispatch(request: Request, segments: string[], method: string) {
           title: z.string().min(3).max(200),
           body: z.string().min(20).max(100000),
           description: z.string().max(300),
+          status: z.enum(["draft", "published"]).default("published"),
+          references: z
+            .array(
+              z.object({
+                title: z.string().min(1).max(300),
+                url: z.url().refine((v) => v.startsWith("https://")),
+              }),
+            )
+            .max(20)
+            .optional(),
         })
         .parse(await request.json());
       return response(
         await db.transaction(async (tx) => {
           const [a] = await tx
             .insert(s.articles)
-            .values({ slug: data.slug, status: "draft", authorId: user.id })
+            .values({
+              slug: data.slug,
+              status: data.status,
+              publishedAt: data.status === "published" ? new Date() : null,
+              authorId: user.id,
+            })
             .onConflictDoUpdate({
               target: s.articles.slug,
               set: {
-                status: "draft",
+                status: data.status,
+                publishedAt:
+                  data.status === "published"
+                    ? sql`coalesce(${s.articles.publishedAt}, now())`
+                    : null,
                 reviewerId: null,
                 reviewedAt: null,
                 updatedAt: new Date(),
@@ -516,10 +537,29 @@ async function dispatch(request: Request, segments: string[], method: string) {
             });
           await tx.insert(s.auditLogs).values({
             actorId: user.id,
-            action: "article.save_draft",
+            action:
+              data.status === "published"
+                ? "article.publish"
+                : "article.save_draft",
             entityType: "article",
             entityId: a.id,
           });
+          if (data.references) {
+            await tx
+              .delete(s.medicalReferences)
+              .where(eq(s.medicalReferences.articleId, a.id));
+            if (data.references.length)
+              await tx
+                .insert(s.medicalReferences)
+                .values(
+                  data.references.map((ref) => ({
+                    articleId: a.id,
+                    title: ref.title,
+                    url: ref.url,
+                    checkedAt: new Date(),
+                  })),
+                );
+          }
           return a;
         }),
         201,

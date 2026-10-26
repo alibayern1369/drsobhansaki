@@ -118,7 +118,7 @@ export const copy = {
     journalTitle: "آگاهی بیشتر، زندگی سالم‌تر",
     journalDesc: "جایی برای شناخت بهتر بدن و تصمیم‌های آگاهانه‌تر برای سلامتی.",
     journalEmpty: "مطالب علمی در دست آماده‌سازی هستند",
-    journalEmptyDesc: "مقالات تنها پس از بررسی و تأیید پزشک منتشر خواهند شد.",
+    journalEmptyDesc: "آموزش سلامت، پیشگیری و طب کار بر پایه منابع معتبر.",
     faq: "پرسش‌های متداول",
     faqTitle: "شاید سؤال شما هم باشد",
     faqDesc: "پاسخ به سؤال‌های شما، پیش از شروع مشاوره.",
@@ -129,7 +129,8 @@ export const copy = {
       "دسترسی آسان‌تر به مراقبت پزشکی، با احترام به زمان و آرامش شما.",
     quick: "دسترسی سریع",
     connection: "ارتباط با ما",
-    infoPending: "اطلاعات تماس پس از تأیید پزشک درج می‌شود.",
+    infoPending:
+      "برای هماهنگی مشاوره از رزرو آنلاین و راه‌های ارتباطی موجود استفاده کنید.",
     privacy: "حریم خصوصی",
     terms: "شرایط استفاده",
     rights: "تمامی حقوق برای دکتر سبحان ساکی محفوظ است.",
@@ -138,7 +139,7 @@ export const copy = {
     stock: "تصویر نمایشی؛ عکس رسمی پزشک به‌زودی جایگزین می‌شود.",
     availability: "برنامهٔ مشاوره",
     availabilityDesc:
-      "زمان‌های قابل رزرو پس از تأیید برنامهٔ پزشک نمایش داده می‌شوند.",
+      "زمان‌های فعال را در مسیر رزرو ببینید یا درخواست هماهنگی زمان ثبت کنید.",
     patient: "پنل بیمار",
   },
   en: {
@@ -206,7 +207,7 @@ export const copy = {
     journalDesc: "Understand your health and make informed decisions.",
     journalEmpty: "Evidence-based articles are being prepared",
     journalEmptyDesc:
-      "Articles will only be published after medical review and approval.",
+      "Evidence-informed education about prevention, health and occupational medicine.",
     faq: "FREQUENTLY ASKED QUESTIONS",
     faqTitle: "A little clarity, before we begin",
     faqDesc: "Answers to common questions about your consultation.",

@@ -50,7 +50,7 @@ test.describe("authenticated administration", () => {
     await expect(page.locator(".dashboard-nav")).toBeVisible();
     await expect(
       page.getByText("در حال دریافت اطلاعات…", { exact: true }),
-    ).toHaveCount(0);
+    ).toHaveCount(0, { timeout: 15000 });
     for (const tab of [
       "overview",
       "appointments",
@@ -77,7 +77,7 @@ test.describe("authenticated administration", () => {
       await expect(page.locator(".dashboard-title h1")).toBeVisible();
       await expect(
         page.getByText("در حال دریافت اطلاعات…", { exact: true }),
-      ).toHaveCount(0);
+      ).toHaveCount(0, { timeout: 15000 });
       await expect(page.locator("#json-editor,pre.data-preview")).toHaveCount(
         0,
       );

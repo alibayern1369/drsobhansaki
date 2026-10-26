@@ -1,4 +1,6 @@
 "use client";
+import { formatJalali } from "@/lib/jalali";
+import { JalaliDatePicker } from "./jalali-date-picker";
 import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 import {
@@ -248,12 +250,7 @@ export function ReceiptStorageSettings({ locale }: { locale: Locale }) {
       {data?.lastRun && (
         <div className="content-panel" style={{ marginTop: 20 }}>
           <h2>{fa ? "آخرین اجرای پاک‌سازی" : "Last cleanup execution"}</h2>
-          <p>
-            {new Date(data.lastRun.startedAt).toLocaleString(
-              fa ? "fa-IR" : "en-US",
-              { timeZone: "Asia/Tehran" },
-            )}
-          </p>
+          <p>{formatJalali(data.lastRun.startedAt, true)}</p>
           <p>
             {fa ? "خطاها: " : "Errors: "}
             {data.lastRun.errors} · {data.lastRun.status} ·{" "}
@@ -376,11 +373,10 @@ export function ReceiptRetentionControls({
               ? "نگهداری اجباری تا پایان روز (UTC)"
               : "Mandatory retention through end of day (UTC)"}
           </label>
-          <input
-            type="date"
+          <JalaliDatePicker
             id={`retain-${receiptId}`}
             value={until}
-            onChange={(e) => setUntil(e.target.value)}
+            onChange={setUntil}
           />
         </div>
         <button className="button button-small" disabled={busy}>

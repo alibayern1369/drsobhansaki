@@ -1,10 +1,13 @@
+import { siteOrigin } from "@/lib/seo";
 import type { MetadataRoute } from "next";
-export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+import { publicSetting } from "@/server/content";
+export const dynamic = "force-dynamic";
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const base = siteOrigin((await publicSetting("seo"))?.siteUrl);
   return {
     rules: {
       userAgent: "*",
-      allow: "/",
+      allow: ["/", "/api/site-images/"],
       disallow: [
         "/api/",
         "/fa/admin",

@@ -1,4 +1,5 @@
 "use client";
+import { formatJalali } from "@/lib/jalali";
 import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 type Receipt = {
@@ -52,12 +53,7 @@ export function PatientReceipts({
         <div className="summary-line" key={r.id}>
           <div>
             <strong>{r.originalFilename}</strong>
-            <p style={{ fontSize: 10 }}>
-              {new Date(r.uploadedAt).toLocaleDateString(
-                fa ? "fa-IR" : "en-US",
-                { timeZone: "Asia/Tehran" },
-              )}
-            </p>
+            <p style={{ fontSize: 10 }}>{formatJalali(r.uploadedAt, true)}</p>
           </div>
           {r.deletionStatus === "deleted" ? (
             <span>

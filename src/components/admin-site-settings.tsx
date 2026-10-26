@@ -163,7 +163,7 @@ export function AdminSiteSettings({
             <textarea
               id={`${name}-${l}`}
               dir={l === "fa" ? "rtl" : "ltr"}
-              maxLength={name === "title" ? 200 : 1000}
+              maxLength={name === "title" ? 200 : 10000}
               value={group[l] || ""}
               onChange={(e) =>
                 setValue((v) => ({
@@ -381,6 +381,30 @@ export function AdminSiteSettings({
       )}
       {tab === "seo" && (
         <>
+          {field(
+            "siteUrl",
+            fa ? "نشانی اصلی سایت (HTTPS)" : "Canonical site origin",
+            "url",
+          )}
+          {field(
+            "googleSiteVerification",
+            fa
+              ? "کد Google Search Console (فقط مقدار content)"
+              : "Google verification token (content value only)",
+          )}
+          <p className="notice">
+            {fa
+              ? "در سرچ کنسول روش URL prefix و سپس HTML tag را انتخاب کنید؛ فقط مقدار content را اینجا قرار دهید و ذخیره کنید. سپس در گوگل Verify را بزنید و sitemap.xml را ثبت کنید. کلید خصوصی یا رمز حساب گوگل لازم نیست. نشانی اصلی باید همان دامنه‌ای باشد که سایت روی آن در دسترس است."
+              : "Use URL-prefix verification → HTML tag, save its content value here, then verify in Search Console and submit sitemap.xml. No private API key is needed."}
+          </p>
+          <a
+            className="text-link"
+            href="https://search.google.com/search-console"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Google Search Console
+          </a>
           {bilingual("title", fa ? "عنوان سایت در جستجو" : "Search title")}
           {bilingual(
             "description",
@@ -421,6 +445,23 @@ export function AdminSiteSettings({
         <>
           {field("phone", fa ? "شماره تماس" : "Phone", "tel")}
           {field("email", fa ? "ایمیل" : "Email", "email")}
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={value.showOfficeAddress === true}
+              onChange={(e) =>
+                setValue((v) => ({ ...v, showOfficeAddress: e.target.checked }))
+              }
+            />
+            {fa
+              ? "نمایش نشانی مطب (فقط در صورت واردکردن نشانی)"
+              : "Show office address when an address is provided"}
+          </label>
+          <p className="field-help">
+            {fa
+              ? "اگر مطب ندارید این گزینه را خاموش بگذارید؛ هیچ عنوان یا نشانی مطبی در سایت نمایش داده نمی‌شود."
+              : "Leave this disabled when consultations are provided without an office."}
+          </p>
           {bilingual("address", fa ? "نشانی مطب" : "Practice address")}
           {bilingual("hours", fa ? "ساعات پاسخ‌گویی" : "Office hours")}
           <h2>{fa ? "اطلاعات حرفه‌ای پزشک" : "Professional profile"}</h2>
