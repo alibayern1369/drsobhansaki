@@ -202,6 +202,37 @@ export function AdminSiteSettings({
       setUploading("");
     }
   }
+  async function resetImage(name: string) {
+    const current = String(value[name] || "");
+    const match = current.match(
+      /^\/api\/site-images\/([a-f0-9-]{36}\.(?:jpg|png|webp))$/,
+    );
+    if (
+      match &&
+      current !== initial[name] &&
+      !Object.entries(value).some(
+        ([otherName, otherValue]) =>
+          otherName !== name && otherValue === current,
+      )
+    ) {
+      setUploading(name);
+      setError("");
+      try {
+        const response = await fetch(
+          `/api/admin/site-images?id=${encodeURIComponent(match[1])}`,
+          { method: "DELETE" },
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message);
+      } catch (error) {
+        setError((error as Error).message);
+        return;
+      } finally {
+        setUploading("");
+      }
+    }
+    setValue((v) => ({ ...v, [name]: "" }));
+  }
   return (
     <form
       className="content-panel admin-settings-form"
@@ -311,7 +342,11 @@ export function AdminSiteSettings({
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     disabled={!!uploading}
-                    onChange={(e) => void upload(name, e.target.files?.[0])}
+                    onChange={(e) => {
+                      const file = e.currentTarget.files?.[0];
+                      e.currentTarget.value = "";
+                      void upload(name, file);
+                    }}
                   />
                 </div>
                 <div className="field">
@@ -331,7 +366,8 @@ export function AdminSiteSettings({
                 <button
                   type="button"
                   className="text-link"
-                  onClick={() => setValue((v) => ({ ...v, [name]: "" }))}
+                  disabled={!!uploading}
+                  onClick={() => void resetImage(name)}
                 >
                   {fa ? "بازگشت به تصویر پیش‌فرض" : "Restore default"}
                 </button>

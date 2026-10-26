@@ -98,13 +98,24 @@ test.describe("authenticated administration", () => {
     page,
   }) => {
     const submitted: Array<{ url: string; body: Record<string, unknown> }> = [];
+    const removed: string[] = [];
+    const uploadedUrl =
+      "/api/site-images/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa.png";
+    await page.route("**/api/site-images/**", (route) =>
+      route.fulfill({ path: "public/images/doctor.jpg" }),
+    );
     await page.route("**/api/admin/**", async (route) => {
       const url = new URL(route.request().url());
       if (route.request().method() !== "GET") {
         if (url.pathname.endsWith("/site-images")) {
+          if (route.request().method() === "DELETE") {
+            removed.push(url.searchParams.get("id")!);
+            await route.fulfill({ json: { ok: true } });
+            return;
+          }
           await route.fulfill({
             status: 201,
-            json: { url: "/images/doctor.jpg" },
+            json: { url: uploadedUrl },
           });
           return;
         }
@@ -143,7 +154,20 @@ test.describe("authenticated administration", () => {
       .locator("#upload-doctorImageUrl")
       .setInputFiles("public/images/doctor.jpg");
     await expect(page.locator("#image-doctorImageUrl")).toHaveValue(
-      "/images/doctor.jpg",
+      uploadedUrl,
+    );
+    await page
+      .locator("fieldset")
+      .filter({ has: page.locator("#upload-doctorImageUrl") })
+      .getByRole("button", { name: "بازگشت به تصویر پیش‌فرض" })
+      .click();
+    await expect(page.locator("#image-doctorImageUrl")).toHaveValue("");
+    expect(removed).toEqual(["aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa.png"]);
+    await page
+      .locator("#upload-doctorImageUrl")
+      .setInputFiles("public/images/doctor.jpg");
+    await expect(page.locator("#image-doctorImageUrl")).toHaveValue(
+      uploadedUrl,
     );
     await page
       .locator(
@@ -154,7 +178,7 @@ test.describe("authenticated administration", () => {
     await expect.poll(() => submitted.length).toBe(1);
     expect(
       (submitted[0].body.value as Record<string, string>).doctorImageUrl,
-    ).toBe("/images/doctor.jpg");
+    ).toBe(uploadedUrl);
     await page.locator('a[href="#content"]').click();
     await page.locator("#content-hero1").fill("متن آزمایشی");
     await page.getByLabel("انتشار این زبان روی سایت").check();
