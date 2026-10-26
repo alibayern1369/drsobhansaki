@@ -7,7 +7,7 @@ import { siteAsset } from "@/lib/site-assets";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { services, isLocale } from "@/lib/content";
+import { services, isLocale, doctorProfile } from "@/lib/content";
 import { Icon, type IconName } from "@/components/icon";
 import { PageBanner } from "@/components/page-banner";
 import { LoginForm } from "@/components/login-form";
@@ -155,8 +155,10 @@ export default async function Page({
                       <h3>{v}</h3>
                       <p>
                         {[
-                          localText(contact?.education),
-                          localText(contact?.registration),
+                          localText(contact?.education) ||
+                            doctorProfile.education[locale],
+                          localText(contact?.registration) ||
+                            doctorProfile.registration[locale],
                           localText(contact?.interests),
                           String(contact?.phone || ""),
                         ][i] ||

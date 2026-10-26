@@ -90,7 +90,12 @@ svg {
   display: inline-flex;
   align-items: center;
   gap: 11px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 100%;
+}
+.brand > span:last-child {
+  min-width: 0;
 }
 .brand strong {
   display: block;
@@ -103,8 +108,12 @@ svg {
   color: var(--muted);
   display: block;
   letter-spacing: 1px;
+  max-width: 240px;
+  white-space: normal;
+  line-height: 1.7;
 }
 .brand-symbol {
+  flex-shrink: 0;
   width: 47px;
   height: 47px;
   border-radius: 15px;
@@ -1107,8 +1116,12 @@ h2 {
 }
 .footer-bottom > div {
   display: flex;
+  flex-wrap: wrap;
   gap: 25px;
   align-items: center;
+}
+.developer-credit {
+  font-weight: 600;
 }
 .made-with {
   display: flex;

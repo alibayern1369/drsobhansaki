@@ -67,6 +67,16 @@ export function Footer({
               ? "با توجه به حال خوب شما"
               : "With your wellbeing in mind"}
           </span>
+          <a
+            href="https://klandweb.ir"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="developer-credit"
+          >
+            {locale === "fa"
+              ? "طراحی و توسعه توسط کیش لَند وب"
+              : "Design & development by Kish Land Web"}
+          </a>
         </div>
       </div>
     </footer>

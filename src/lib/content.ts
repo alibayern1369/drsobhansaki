@@ -50,10 +50,17 @@ export const services = [
     enDesc: "Assessing health concerns related to your work environment.",
   },
 ];
+export const doctorProfile = {
+  education: {
+    fa: "دستیار تخصصی طب کار و بیماری‌های شغلی، دانشگاه ایران",
+    en: "Resident in occupational medicine and occupational diseases, Iran University of Medical Sciences",
+  },
+  registration: { fa: "۱۷۱۳۴۱", en: "171341" },
+};
 export const copy = {
   fa: {
     name: "دکتر سبحان ساکی",
-    profession: "پزشک عمومی",
+    profession: "پزشک و دستیار تخصصی طب کار و بیماری‌های شغلی",
     home: "خانه",
     about: "درباره پزشک",
     services: "خدمات پزشکی",
@@ -94,9 +101,8 @@ export const copy = {
     doctorTitle: "یک همراه مطمئن،",
     doctorTitle2: "در مسیر سلامتی",
     doctorDesc:
-      "من سبحان ساکی هستم، پزشک عمومی. اینجا فضایی برای دسترسی آسان‌تر به مشاوره پزشکی، بررسی نگرانی‌های سلامتی و پیگیری منظم درمان شماست.",
-    doctorNote:
-      "اطلاعات تحصیلی و شماره نظام پزشکی پس از تأیید پزشک درج می‌شود.",
+      "من سبحان ساکی هستم، پزشک و دستیار تخصصی طب کار و بیماری‌های شغلی از دانشگاه ایران. اینجا فضایی برای دسترسی آسان‌تر به مشاوره پزشکی، بررسی نگرانی‌های سلامتی و پیگیری منظم درمان شماست.",
+    doctorNote: "دانشگاه ایران · شماره نظام پزشکی: ۱۷۱۳۴۱",
     doctorButton: "بیشتر درباره پزشک",
     processLabel: "ساده‌تر از همیشه",
     processTitle: "فقط چند قدم تا مشاوره با پزشک",
@@ -137,7 +143,7 @@ export const copy = {
   },
   en: {
     name: "Dr. Sobhan Saki",
-    profession: "General Practitioner",
+    profession: "Physician & Occupational Medicine Resident",
     home: "Home",
     about: "About the doctor",
     services: "Medical services",
@@ -181,9 +187,9 @@ export const copy = {
     doctorTitle: "A trusted companion",
     doctorTitle2: "on your health journey",
     doctorDesc:
-      "I am Sobhan Saki, a general practitioner. This is a space for easier access to medical advice, discussing health concerns and consistent follow-up care.",
+      "I am Sobhan Saki, a physician and resident in occupational medicine and occupational diseases at Iran University of Medical Sciences. This is a space for easier access to medical advice, discussing health concerns and consistent follow-up care.",
     doctorNote:
-      "Education and medical registration details will be added after verification.",
+      "Iran University of Medical Sciences · Medical registration number: 171341",
     doctorButton: "More about the doctor",
     processLabel: "CARE, MADE SIMPLE",
     processTitle: "A few steps to your consultation",
