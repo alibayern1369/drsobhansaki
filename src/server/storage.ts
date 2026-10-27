@@ -28,6 +28,13 @@ import {
 import { AppError, currentUser, rateLimit, requireUser } from "./security";
 import { blobToken, privateReceiptStorage } from "./blob-store";
 const prepareSchema = z.object({
+  transactionReference: z
+    .string()
+    .trim()
+    .min(3)
+    .max(100)
+    .regex(/^[\p{L}\p{N}\s_\-/]+$/u)
+    .optional(),
   bankAccountId: z.uuid(),
   originalFilename: z.string().min(1).max(255),
   mimeType: z.enum(RECEIPT_MIME_TYPES),
@@ -60,6 +67,8 @@ export async function prepareReceipt(appointmentId: string, input: unknown) {
       )
       .for("update");
     if (!a) throw new AppError(404, "NOT_FOUND");
+    if (a.status === "awaiting_payment" && a.expiresAt <= new Date())
+      throw new AppError(409, "UPLOAD_EXPIRED");
     const [existing] = await tx
       .select()
       .from(paymentReceipts)
@@ -127,6 +136,7 @@ export async function prepareReceipt(appointmentId: string, input: unknown) {
       .values({
         appointmentId: a.id,
         bankAccountId: bank.id,
+        transactionReference: data.transactionReference,
         status: "awaiting_payment",
       })
       .returning();

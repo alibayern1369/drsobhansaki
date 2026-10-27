@@ -112,10 +112,20 @@ test("Persian prices, Jalali calendar and separate staff list", async ({
         consultationTypeId: overview.consultations[0].id,
         patientName: "نمونه آزمایشی",
         patientPhone: "09120000000",
+        typeSnapshot: { key: "phone" },
+        startsAt: null,
       },
     ];
     await page.route("**/api/admin/overview", (route) =>
       route.fulfill({ json: overview }),
+    );
+    await page.route("**/api/admin/appointment-list?**", (route) =>
+      route.fulfill({
+        json: { items: overview.appointments, total: 1, page: 1 },
+      }),
+    );
+    await page.route("**/api/admin/appointment-history/**", (route) =>
+      route.fulfill({ json: [] }),
     );
     await page.route("**/api/admin/payment-details/**", (route) =>
       route.fulfill({

@@ -5,17 +5,21 @@ import Link from "next/link";
 import type { Locale } from "@/lib/content";
 import { bookingDraftKey, type BookingConfig } from "@/lib/booking-flow";
 import { formatMoney } from "@/lib/domain";
-import { formatJalali } from "@/lib/jalali";
+import { BookingCalendar } from "./booking-calendar";
+import type { PatientAppointment } from "@/lib/patient-portal";
 import { adminLabel } from "@/lib/admin-labels";
+import { patientFetch } from "@/lib/patient-fetch";
 export function LiveBooking({
   locale,
   type,
   config,
   draft,
+  onCreated,
 }: {
   locale: Locale;
   type: string;
   config: BookingConfig;
+  onCreated: (appointment: PatientAppointment) => void;
   draft: {
     platform: string;
     mode: string;
@@ -25,7 +29,7 @@ export function LiveBooking({
 }) {
   const fa = locale === "fa",
     router = useRouter();
-  const [mode, setMode] = useState(draft.mode);
+  const mode = "patient";
   const [slotId, setSlotId] = useState(draft.slotId);
   const [platform, setPlatform] = useState(draft.platform);
   const [consent, setConsent] = useState(false);
@@ -46,11 +50,7 @@ export function LiveBooking({
       }),
     );
   }, [type, platform, mode, slotId, draft.idempotencyKey, locale]);
-  if (
-    !config.ready ||
-    !consultation ||
-    (!config.testMode && consultation.enabled === false)
-  )
+  if (!config.ready || !consultation || consultation.enabled === false)
     return (
       <p className="notice warn">
         {fa
@@ -67,7 +67,7 @@ export function LiveBooking({
         setBusy(true);
         setError("");
         try {
-          const r = await fetch("/api/appointments", {
+          const r = await patientFetch("/api/appointments", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -91,13 +91,19 @@ export function LiveBooking({
             return;
           }
           if (!r.ok) throw new Error(d.message || "Request failed");
-          sessionStorage.removeItem(bookingDraftKey(locale));
-          router.push(
-            `/${locale}/dashboard?appointment=${encodeURIComponent(d.id)}`,
-          );
-          router.refresh();
+          onCreated({
+            ...d,
+            startsAt:
+              config.slots.find((s) => s.id === d.slotId)?.startsAt || null,
+          });
         } catch (error) {
-          setError((error as Error).message);
+          setError(
+            error instanceof TypeError
+              ? fa
+                ? "ارتباط برقرار نشد؛ دوباره تلاش کنید. درخواست تکراری ثبت نمی‌شود."
+                : "Connection failed. Retry safely without creating a duplicate request."
+              : (error as Error).message,
+          );
         } finally {
           setBusy(false);
         }
@@ -136,62 +142,14 @@ export function LiveBooking({
           )}
         </div>
       )}
-      <div className="field">
-        <label htmlFor="confirmed-scheduling">
-          {fa ? "روش تعیین زمان" : "Scheduling"}
-        </label>
-        <select
-          id="confirmed-scheduling"
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-          required
-        >
-          <option value="">{fa ? "انتخاب کنید" : "Select"}</option>
-          {config.booking?.doctorScheduling && (
-            <option value="doctor">
-              {fa
-                ? "هماهنگی زمان پس از تأیید پرداخت"
-                : "Coordinate after payment approval"}
-            </option>
-          )}
-          {config.booking?.patientScheduling && (
-            <option value="patient">
-              {fa ? "انتخاب از زمان‌های آزاد" : "Choose an available time"}
-            </option>
-          )}
-        </select>
-      </div>
-      {mode === "patient" && (
-        <div className="field">
-          <label htmlFor="live-slot">
-            {fa ? "زمان مشاوره (تهران)" : "Consultation time (Tehran)"}
-          </label>
-          <select
-            id="live-slot"
-            value={slotId}
-            onChange={(e) => setSlotId(e.target.value)}
-            required
-          >
-            <option value="">{fa ? "انتخاب زمان" : "Choose time"}</option>
-            {config.slots
-              .filter((s) => s.consultationTypeId === consultation.id)
-              .map((s) => (
-                <option value={s.id} key={s.id}>
-                  {formatJalali(s.startsAt, true)}
-                </option>
-              ))}
-          </select>
-          {!config.slots.some(
-            (s) => s.consultationTypeId === consultation.id,
-          ) && (
-            <p className="notice">
-              {fa
-                ? "زمان آزاد ثبت نشده؛ گزینه هماهنگی پس از پرداخت را انتخاب کنید."
-                : "No available time; choose coordination after payment."}
-            </p>
-          )}
-        </div>
-      )}
+      <BookingCalendar
+        slots={config.slots.filter(
+          (s) => s.consultationTypeId === consultation.id,
+        )}
+        value={slotId}
+        onChange={setSlotId}
+        locale={locale}
+      />
       <label className="checkbox">
         <input
           type="checkbox"
@@ -214,8 +172,8 @@ export function LiveBooking({
       </label>
       <p className="notice">
         {fa
-          ? "پس از ثبت، اطلاعات پرداخت و بارگذاری رسید را در پنل بیمار می‌بینید. پس از تأیید واریز، دکمه ورود به چت و ارسال مدارک فعال می‌شود."
-          : "After submitting, open your dashboard to pay and upload a receipt. Doctor chat becomes available after payment approval."}
+          ? "با ادامه، زمان برای ۳۰ دقیقه رزرو موقت می‌شود و وارد پرداخت می‌شوید. اطلاعات پزشک پس از تأیید نهایی نوبت نمایش داده می‌شود."
+          : "Continue to reserve this time for 30 minutes and upload your receipt. Doctor contacts unlock after appointment confirmation."}
       </p>
       {error && (
         <p role="alert" className="form-error">
@@ -224,7 +182,14 @@ export function LiveBooking({
       )}
       <button
         className="button"
-        disabled={busy || (type === "text" && !messenger)}
+        disabled={
+          busy ||
+          !config.slots.some(
+            (s) => s.id === slotId && s.consultationTypeId === consultation.id,
+          ) ||
+          !config.booking?.patientScheduling ||
+          (type === "text" && !messenger)
+        }
       >
         {busy
           ? fa

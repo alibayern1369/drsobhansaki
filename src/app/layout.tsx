@@ -5,6 +5,7 @@ import "./globals.css";
 import "./pages.css";
 import "./responsive.css";
 import "./admin.css";
+import "./patient.css";
 const vazir = localFont({
   src: "../../public/fonts/Vazirmatn.ttf",
   variable: "--font-vazir",

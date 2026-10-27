@@ -16,6 +16,7 @@ export async function requestOtp(phone: string) {
   phoneSchema.parse(phone);
   await rateLimit(`otp:ip:${await requestKey()}`, 15, 900);
   await rateLimit(`otp:phone:${phone}`, 3, 600);
+  await rateLimit(`otp:cooldown:${phone}`, 1, 60);
   const dev =
     process.env.NODE_ENV !== "production" &&
     process.env.SMS_PROVIDER === "development";

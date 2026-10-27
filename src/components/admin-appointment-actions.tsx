@@ -30,6 +30,8 @@ export function AdminAppointmentActions({
       legalRetentionHold: boolean;
       disputeActive: boolean;
       legalRetentionUntil: string | null;
+      uploadedAt: string;
+      transactionReference: string | null;
     }[]
   >([]);
   const [slots, setSlots] = useState<
@@ -42,6 +44,16 @@ export function AdminAppointmentActions({
   >([]);
   const [slot, setSlot] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [history, setHistory] = useState<
+    {
+      id: string;
+      toState: string;
+      note: string | null;
+      createdAt: string;
+      actorName: string | null;
+      actorRole: string;
+    }[]
+  >([]);
   async function call(path: string, value: unknown) {
     setBusy(true);
     try {
@@ -66,17 +78,23 @@ export function AdminAppointmentActions({
   async function details() {
     setBusy(true);
     try {
-      const [r, c] = await Promise.all([
+      const [r, c, h] = await Promise.all([
         fetch(`/api/admin/payment-details/${id}`, {
           headers: { "Accept-Language": locale },
         }),
         fetch("/api/admin/calendar", {
           headers: { "Accept-Language": locale },
         }),
+        fetch(`/api/admin/appointment-history/${id}`, {
+          headers: { "Accept-Language": locale },
+        }),
       ]);
       const [rd, cd] = await Promise.all([r.json(), c.json()]);
       if (!r.ok) throw new Error(rd.message);
       if (!c.ok) throw new Error(cd.message);
+      const hd = await h.json();
+      if (!h.ok) throw new Error(hd.message);
+      setHistory(hd);
       setLoaded(true);
       setReceipts(rd);
       setSlots(cd.slots || []);
@@ -99,6 +117,12 @@ export function AdminAppointmentActions({
       </button>
       {receipts.map((r) => (
         <div key={r.id}>
+          <p>
+            {fa ? "تاریخ بارگذاری:" : "Uploaded:"}{" "}
+            {formatJalali(r.uploadedAt, true)} ·{" "}
+            {fa ? "شماره تراکنش:" : "Bank reference:"}{" "}
+            <b dir="ltr">{r.transactionReference || "—"}</b>
+          </p>
           <div className="summary-line">
             <span>
               {fa ? "رسید پرداخت" : "Payment receipt"} ·{" "}
@@ -147,6 +171,25 @@ export function AdminAppointmentActions({
             ? "هنوز رسیدی برای این نوبت ارسال نشده است."
             : "No receipt has been submitted for this appointment."}
         </p>
+      )}
+      {loaded && history.length > 0 && (
+        <details className="appointment-timeline">
+          <summary>
+            {fa ? "تاریخچه بررسی و وضعیت" : "Review and status history"}
+          </summary>
+          <ol>
+            {history.map((h) => (
+              <li key={h.id}>
+                <strong>{adminLabel(h.toState, fa)}</strong>
+                <small>
+                  {formatJalali(h.createdAt, true)} ·{" "}
+                  {h.actorName || adminLabel(h.actorRole, fa)}
+                </small>
+                {h.note && <p>{h.note}</p>}
+              </li>
+            ))}
+          </ol>
+        </details>
       )}
       {["awaiting_scheduling", "confirmed"].includes(status) &&
         slots.length > 0 && (

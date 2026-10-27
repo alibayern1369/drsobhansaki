@@ -14,14 +14,17 @@ export function PatientReceipts({
   appointmentId,
   locale,
   refreshKey,
+  onFinalized,
 }: {
   appointmentId: string;
   locale: Locale;
   refreshKey: string;
+  onFinalized?: () => void;
 }) {
   const fa = locale === "fa";
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   useEffect(() => {
     let active = true;
     void fetch(`/api/appointments/${appointmentId}/receipts`, {
@@ -62,7 +65,39 @@ export function PatientReceipts({
                 : "File deleted under retention policy"}
             </span>
           ) : r.verificationStatus === "pending_upload" ? (
-            <span>{fa ? "در انتظار تکمیل بارگذاری" : "Upload pending"}</span>
+            <div>
+              <span>{fa ? "در انتظار تکمیل بارگذاری" : "Upload pending"}</span>
+              {onFinalized && (
+                <button
+                  className="text-link"
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      const response = await fetch(
+                        `/api/receipts/${r.id}/complete`,
+                        {
+                          method: "POST",
+                          headers: { "Accept-Language": locale },
+                        },
+                      );
+                      const data = await response.json();
+                      if (!response.ok) throw new Error(data.message);
+                      onFinalized();
+                    } catch (e) {
+                      setError((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {fa
+                    ? "بررسی مجدد فایل بارگذاری‌شده"
+                    : "Recheck uploaded file"}
+                </button>
+              )}
+            </div>
           ) : r.scanStatus === "invalid_file" ? (
             <span>{fa ? "فایل نامعتبر" : "Invalid file"}</span>
           ) : (

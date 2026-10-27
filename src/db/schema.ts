@@ -305,6 +305,7 @@ export const paymentSubmissions = pgTable("payment_submissions", {
     .references(() => bankAccounts.id)
     .notNull(),
   status: paymentEnum("status").default("receipt_submitted").notNull(),
+  transactionReference: varchar("transaction_reference", { length: 100 }),
   disputeActive: boolean("dispute_active").default(false).notNull(),
   retentionHold: boolean("retention_hold").default(false).notNull(),
   legalRetentionUntil: timestamp("legal_retention_until", {
@@ -430,6 +431,8 @@ export const notifications = pgTable("notifications", {
     .defaultNow()
     .notNull(),
   providerId: text("provider_id"),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  lastError: text("last_error"),
   createdAt: created(),
 });
 export const articleCategories = pgTable("article_categories", {

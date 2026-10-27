@@ -8,6 +8,10 @@ const asset = z
   .max(2048)
   .refine((v) => !v || /^\/(?!\/)/.test(v) || /^https:\/\//.test(v));
 const schemas = {
+  consultationContact: z.object({
+    phone: z.string().max(30).default(""),
+    phoneInstructions: localized.optional(),
+  }),
   branding: z
     .object({
       primaryColor: z

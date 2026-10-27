@@ -1,10 +1,22 @@
 import "server-only";
-import { and, asc, desc, eq, ne, gt, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  ne,
+  gt,
+  sql,
+  getTableColumns,
+  type SQL,
+} from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
 import { AppError } from "./security";
 import { normalizeDigits } from "@/lib/admin-labels";
+import { after } from "next/server";
+import { runJobs } from "./jobs";
 const uuid = z.uuid();
 type User = { id: string; role: string };
 export async function adminOperations(
@@ -24,6 +36,93 @@ export async function adminOperations(
     if (!["doctor", "super_admin"].includes(user.role))
       throw new AppError(403, "FORBIDDEN");
   };
+  if (key === "appointment-list" && method === "GET") {
+    const params = new URL(request.url).searchParams;
+    const page = z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .parse(params.get("page") || 1);
+    const search = normalizeDigits(params.get("q") || "")
+      .trim()
+      .slice(0, 100);
+    const conditions: SQL[] = [];
+    if (search)
+      conditions.push(
+        sql`concat(${s.users.name}, ' ', ${s.users.phone}, ' ', ${s.appointments.trackingCode}) ilike ${"%" + search.replace(/[%_\\]/g, "\\$&") + "%"}`,
+      );
+    const status = params.get("status");
+    if (status)
+      conditions.push(sql`${s.appointments.status}::text = ${status}`);
+    for (const [key, op] of [
+      ["from", ">="],
+      ["to", "<="],
+    ] as const) {
+      const value = params.get(key);
+      if (value) {
+        const date = z.iso.date().parse(value);
+        conditions.push(
+          op === ">="
+            ? sql`${s.appointmentSlots.startsAt} >= ${date + "T00:00:00+03:30"}::timestamptz`
+            : sql`${s.appointmentSlots.startsAt} < ${date + "T00:00:00+03:30"}::timestamptz + interval '1 day'`,
+        );
+      }
+    }
+    const where = and(...conditions);
+    const [count] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(s.appointments)
+      .innerJoin(s.users, eq(s.users.id, s.appointments.patientId))
+      .leftJoin(
+        s.appointmentSlots,
+        eq(s.appointmentSlots.id, s.appointments.slotId),
+      )
+      .where(where);
+    const items = await db
+      .select({
+        ...getTableColumns(s.appointments),
+        patientName: s.users.name,
+        patientPhone: s.users.phone,
+        startsAt: s.appointmentSlots.startsAt,
+      })
+      .from(s.appointments)
+      .innerJoin(s.users, eq(s.users.id, s.appointments.patientId))
+      .leftJoin(
+        s.appointmentSlots,
+        eq(s.appointmentSlots.id, s.appointments.slotId),
+      )
+      .where(where)
+      .orderBy(desc(s.appointments.createdAt))
+      .limit(15)
+      .offset((page - 1) * 15);
+    return json({
+      items: items.map((a) => ({ ...a, platformSnapshot: null })),
+      total: count.total,
+      page,
+    });
+  }
+  if (key === "appointment-history" && method === "GET" && path[2]) {
+    privileged();
+    return json(
+      await db
+        .select({
+          id: s.appointmentStatusHistory.id,
+          fromState: s.appointmentStatusHistory.fromState,
+          toState: s.appointmentStatusHistory.toState,
+          note: s.appointmentStatusHistory.note,
+          createdAt: s.appointmentStatusHistory.createdAt,
+          actorName: s.users.name,
+          actorRole: s.users.role,
+        })
+        .from(s.appointmentStatusHistory)
+        .innerJoin(s.users, eq(s.users.id, s.appointmentStatusHistory.actorId))
+        .where(
+          eq(s.appointmentStatusHistory.appointmentId, uuid.parse(path[2])),
+        )
+        .orderBy(asc(s.appointmentStatusHistory.createdAt)),
+    );
+  }
   if (method === "GET" && key === "patients") {
     return json(
       await db
@@ -239,6 +338,9 @@ export async function adminOperations(
           event: s.notifications.event,
           status: s.notifications.status,
           attempts: s.notifications.attempts,
+          lastError: s.notifications.lastError,
+          nextAttemptAt: s.notifications.nextAttemptAt,
+          providerId: s.notifications.providerId,
           createdAt: s.notifications.createdAt,
         })
         .from(s.notifications)
@@ -285,17 +387,22 @@ export async function adminOperations(
   if (key === "sms-retry" && method === "POST" && path[2]) {
     privileged();
     const id = uuid.parse(path[2]);
-    await db
+    const changed = await db
       .update(s.notifications)
       .set({ status: "pending", nextAttemptAt: new Date() })
       .where(
         and(eq(s.notifications.id, id), eq(s.notifications.status, "failed")),
-      );
+      )
+      .returning({ id: s.notifications.id });
+    if (!changed.length) throw new AppError(409, "INVALID_TRANSITION");
     await db.insert(s.auditLogs).values({
       actorId: user.id,
       action: "sms.retry",
       entityType: "notification",
       entityId: id,
+    });
+    after(async () => {
+      await runJobs(undefined, id).catch(() => undefined);
     });
     return json({ ok: true });
   }
@@ -375,6 +482,8 @@ export async function adminOperations(
         disputeActive: s.paymentSubmissions.disputeActive,
         legalRetentionUntil: s.paymentSubmissions.legalRetentionUntil,
         createdAt: s.paymentReceipts.createdAt,
+        uploadedAt: s.paymentReceipts.uploadedAt,
+        transactionReference: s.paymentSubmissions.transactionReference,
       })
       .from(s.paymentReceipts)
       .innerJoin(

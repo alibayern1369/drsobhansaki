@@ -1,24 +1,11 @@
-import {
-  isTestPatient,
-  loginTestPatient,
-  createTestPatient,
-  testAppointments,
-  bookTestAppointment,
-  testPatientAction,
-} from "@/server/test-patient";
+import { patientOperation } from "@/server/patient-portal";
+import { availableSlots, expireBookingHolds } from "@/server/availability";
+import { after } from "next/server";
+import { runJobs } from "@/server/jobs";
 import { messengerLink, patientAppointmentView } from "@/lib/booking-flow";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gt,
-  inArray,
-  getTableColumns,
-  sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, inArray, getTableColumns, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
@@ -49,6 +36,42 @@ const response = (data: unknown, status = 200) =>
     headers: { "Cache-Control": "private, no-store" },
   });
 const messages: Record<string, [string, string]> = {
+  INVALID_TRANSITION: [
+    "وضعیت فعلی نوبت یا پرداخت اجازه این تغییر را نمی‌دهد؛ اطلاعات را دوباره دریافت کنید.",
+    "This change is not allowed in the current state. Refresh the details.",
+  ],
+  INVALID_INPUT: [
+    "اطلاعات واردشده معتبر نیست؛ فیلدها را بررسی کنید.",
+    "Please check the entered information.",
+  ],
+  NOT_FOUND: [
+    "اطلاعات موردنظر پیدا نشد.",
+    "The requested information was not found.",
+  ],
+  CONSULTATION_UNAVAILABLE: [
+    "این روش مشاوره در حال حاضر فعال نیست.",
+    "This consultation is currently unavailable.",
+  ],
+  PLATFORM_UNAVAILABLE: [
+    "پیام‌رسان انتخابی فعال یا تنظیم نشده است.",
+    "The selected messenger is unavailable or unconfigured.",
+  ],
+  PLATFORM_REQUIRED: [
+    "پیام‌رسان مشاوره را انتخاب کنید.",
+    "Choose a consultation messenger.",
+  ],
+  BANK_VERIFICATION_REQUIRED: [
+    "ابتدا واریز را در حساب بانکی بررسی و تطبیق دهید.",
+    "Verify and match the bank deposit before approving it.",
+  ],
+  IDEMPOTENCY_CONFLICT: [
+    "این درخواست قبلاً با اطلاعات دیگری ثبت شده است؛ صفحه را دوباره دریافت کنید.",
+    "This request was already submitted with different details. Refresh the page.",
+  ],
+  REVIEW_REASON_REQUIRED: [
+    "دلیل رد یا درخواست اصلاح رسید را وارد کنید.",
+    "Enter a rejection or correction reason.",
+  ],
   PRICE_CHANGED: [
     "تعرفه تغییر کرده است؛ صفحه را دوباره بارگذاری و مبلغ جدید را بررسی کنید.",
     "The price changed. Reload and review the new amount.",
@@ -66,10 +89,6 @@ const messages: Record<string, [string, string]> = {
     "Authentication is not configured yet.",
   ],
   SIGN_IN_REQUIRED: ["ابتدا وارد حساب خود شوید.", "Please sign in first."],
-  INVALID_TEST_LOGIN: [
-    "نام کاربری یا گذرواژه آزمایشی نادرست است.",
-    "Invalid test username or password.",
-  ],
   PLATFORM_CONTACT_REQUIRED: [
     "برای فعال‌کردن پیام‌رسان، شماره، شناسه یا لینک معتبر وارد کنید.",
     "Enter a valid messenger number, username or link before enabling it.",
@@ -77,10 +96,6 @@ const messages: Record<string, [string, string]> = {
   PAYMENT_NOT_APPROVED: [
     "ابتدا پرداخت باید تأیید شود.",
     "Payment approval is required.",
-  ],
-  TEST_LOGIN_ONLY: [
-    "برای حساب تست از ورود آزمایشی استفاده کنید.",
-    "Use test account password sign-in.",
   ],
   INVALID_OTP: [
     "کد نامعتبر یا منقضی شده است.",
@@ -120,36 +135,29 @@ async function dispatch(request: Request, segments: string[], method: string) {
       .select()
       .from(s.websiteSettings)
       .where(eq(s.websiteSettings.key, "booking"));
-    const auth = await currentUser();
-    const testMode =
-      !!auth &&
-      auth.user.role === "patient" &&
-      (await isTestPatient(auth.user.id));
-    const platforms = await db.select().from(s.messagingPlatforms);
+    await expireBookingHolds();
+    const booking = setting?.value as { enabled?: boolean } | undefined;
     return response({
-      testMode,
-      ready: testMode || !!(setting?.value as { enabled?: boolean })?.enabled,
-      booking: testMode
-        ? { enabled: true, doctorScheduling: true, patientScheduling: true }
-        : setting?.value,
+      ready: !!booking?.enabled,
+      booking,
       types: await db
         .select()
         .from(s.consultationTypes)
-        .where(inArray(s.consultationTypes.key, ["phone", "text"])),
-      platforms: platforms
-        .filter((p) => testMode || (p.enabled && messengerLink(p)))
-        .map((p) => ({ id: p.id, key: p.key })),
-      slots: await db
-        .select()
-        .from(s.appointmentSlots)
         .where(
           and(
-            eq(s.appointmentSlots.enabled, true),
-            gt(s.appointmentSlots.startsAt, new Date()),
+            inArray(s.consultationTypes.key, ["phone", "text"]),
+            eq(s.consultationTypes.enabled, true),
           ),
-        )
-        .orderBy(asc(s.appointmentSlots.startsAt))
-        .limit(100),
+        ),
+      platforms: (
+        await db
+          .select()
+          .from(s.messagingPlatforms)
+          .where(eq(s.messagingPlatforms.enabled, true))
+      )
+        .filter((p) => messengerLink(p))
+        .map((p) => ({ id: p.id, key: p.key })),
+      slots: await availableSlots(),
       banks: await db
         .select()
         .from(s.bankAccounts)
@@ -168,41 +176,32 @@ async function dispatch(request: Request, segments: string[], method: string) {
             phone: auth.user.phone,
           }
         : null,
-      testMode:
-        auth?.user.role === "patient"
-          ? await isTestPatient(auth.user.id)
-          : false,
     });
   }
   if (!dbConfigured) throw new AppError(503, "DATABASE_NOT_CONFIGURED");
   if (method !== "GET") await checkOrigin(request);
-  if (method === "POST" && path === "auth/test-patient")
-    return response(await loginTestPatient(await request.json()));
   if (
-    method === "POST" &&
-    segments[0] === "test-patient" &&
-    segments[1] === "appointments" &&
-    segments[2]
-  ) {
-    const user = await requireUser();
-    return response(
-      await testPatientAction(
-        user.id,
-        uuid.parse(segments[2]),
-        await request.json(),
-      ),
-    );
-  }
+    path === "auth/test-patient" ||
+    segments[0] === "test-patient" ||
+    path === "admin/test-patient"
+  )
+    throw new AppError(404, "NOT_FOUND");
+  const patientResponse = await patientOperation(request, segments, method);
+  if (patientResponse) return patientResponse;
   if (method === "POST" && path === "auth/otp") {
-    const data = z.object({ phone: z.string() }).parse(await request.json());
-    if (data.phone === "09000000000")
-      throw new AppError(400, "TEST_LOGIN_ONLY");
+    const data = z
+      .object({ phone: z.string().transform(normalizeDigits) })
+      .parse(await request.json());
+    if (data.phone === "09000000000") throw new AppError(400, "INVALID_INPUT");
     await requestOtp(data.phone);
     return response({ ok: true });
   }
   if (method === "POST" && path === "auth/verify") {
     const data = z
-      .object({ phone: z.string(), code: z.string() })
+      .object({
+        phone: z.string().transform(normalizeDigits),
+        code: z.string().transform(normalizeDigits),
+      })
       .parse(await request.json());
     await verifyOtp(data.phone, data.code);
     return response({ ok: true });
@@ -224,23 +223,14 @@ async function dispatch(request: Request, segments: string[], method: string) {
     return response({ ok: true });
   }
   if (method === "POST" && path === "appointments") {
-    const user = await requireUser();
-    const input = await request.json();
+    await expireBookingHolds();
     return response(
-      patientAppointmentView(
-        (await isTestPatient(user.id))
-          ? await bookTestAppointment(user.id, input)
-          : await bookAppointment(input),
-      ),
+      patientAppointmentView(await bookAppointment(await request.json())),
       201,
     );
   }
   if (method === "GET" && path === "appointments") {
     const user = await requireUser();
-    if (await isTestPatient(user.id))
-      return response(
-        (await testAppointments(user.id)).map(patientAppointmentView),
-      );
     return response(
       await getDb()
         .select({
@@ -288,36 +278,46 @@ async function dispatch(request: Request, segments: string[], method: string) {
   ) {
     const user = await requireUser();
     const id = uuid.parse(segments[1]);
-    const [item] = (await isTestPatient(user.id))
-      ? (await testAppointments(user.id)).filter((a) => a.id === id)
-      : await getDb()
-          .select()
-          .from(s.appointments)
-          .where(
-            and(
-              eq(s.appointments.id, id),
-              eq(s.appointments.patientId, user.id),
-            ),
-          );
+    const [item] = await getDb()
+      .select()
+      .from(s.appointments)
+      .where(
+        and(eq(s.appointments.id, id), eq(s.appointments.patientId, user.id)),
+      );
     if (!item) throw new AppError(404, "NOT_FOUND");
     if (
       item.paymentStatus !== "approved" ||
-      ![
-        "confirmed",
-        "awaiting_scheduling",
-        "in_progress",
-        "completed",
-      ].includes(item.status)
+      !["confirmed", "in_progress", "completed"].includes(item.status)
     )
       throw new AppError(403, "PAYMENT_NOT_APPROVED");
     const platform = (item.platformSnapshot || {}) as { key?: string };
+    if ((item.typeSnapshot as { key?: string }).key === "phone") {
+      const [setting] = await getDb()
+        .select({ value: s.websiteSettings.value })
+        .from(s.websiteSettings)
+        .where(eq(s.websiteSettings.key, "consultationContact"));
+      const info = (setting?.value || {}) as {
+        phone?: string;
+        phoneInstructions?: unknown;
+      };
+      const phone = normalizeDigits(info.phone || "").replace(/[^+\d]/g, "");
+      return response({
+        channels: /^\+?\d{7,15}$/.test(phone)
+          ? [{ key: "phone", url: `tel:${phone}` }]
+          : [],
+        instructions: info.phoneInstructions || null,
+        type: "phone",
+      });
+    }
     const options = await getDb()
       .select()
       .from(s.messagingPlatforms)
       .where(eq(s.messagingPlatforms.enabled, true));
     return response({
+      instructions:
+        options.find((p) => p.key === platform.key)?.instructions || null,
       channels: options
-        .filter((p) => messengerLink(p))
+        .filter((p) => messengerLink(p) && p.key === platform.key)
         .sort(
           (a, b) =>
             Number(b.key === platform.key) - Number(a.key === platform.key),
@@ -328,15 +328,10 @@ async function dispatch(request: Request, segments: string[], method: string) {
           contactNumber: p.contactNumber,
           username: p.username,
         })),
-      testMode: await isTestPatient(user.id),
     });
   }
   if (segments[0] === "admin") {
     const user = await requireUser(true);
-    if (method === "POST" && path === "admin/test-patient") {
-      if (user.role !== "super_admin") throw new AppError(403, "FORBIDDEN");
-      return response(await createTestPatient(user.id), 201);
-    }
     const db = getDb();
     const operation = await adminOperations(request, segments, method, user);
     if (operation) return operation;
@@ -390,7 +385,11 @@ async function dispatch(request: Request, segments: string[], method: string) {
           idempotencyKey: uuid,
         })
         .parse(await request.json());
-      return response(await reviewPayment(uuid.parse(segments[2]), data));
+      const result = await reviewPayment(uuid.parse(segments[2]), data);
+      after(async () => {
+        await runJobs(uuid.parse(segments[2])).catch(() => undefined);
+      });
+      return response(result);
     }
     if (
       method === "POST" &&
@@ -398,7 +397,11 @@ async function dispatch(request: Request, segments: string[], method: string) {
       segments[3] === "schedule"
     ) {
       const data = z.object({ slotId: uuid }).parse(await request.json());
-      return response(await assignSlot(uuid.parse(segments[2]), data.slotId));
+      const result = await assignSlot(uuid.parse(segments[2]), data.slotId);
+      after(async () => {
+        await runJobs(uuid.parse(segments[2])).catch(() => undefined);
+      });
+      return response(result);
     }
     if (
       method === "POST" &&
@@ -452,6 +455,7 @@ async function dispatch(request: Request, segments: string[], method: string) {
             "policies",
             "seo",
             "social",
+            "consultationContact",
           ]),
           value: z.record(z.string(), z.unknown()),
         })
@@ -776,22 +780,28 @@ async function handle(
   } catch (e) {
     const fa =
       request.headers.get("accept-language")?.startsWith("en") !== true;
+    const invalidTransition =
+      e instanceof Error && e.message === "INVALID_TRANSITION";
     const code =
       e instanceof AppError
         ? e.code
-        : e instanceof z.ZodError
-          ? "INVALID_INPUT"
-          : e instanceof Error && e.message === "DATABASE_NOT_CONFIGURED"
-            ? "DATABASE_NOT_CONFIGURED"
-            : "REQUEST_FAILED";
+        : invalidTransition
+          ? "INVALID_TRANSITION"
+          : e instanceof z.ZodError
+            ? "INVALID_INPUT"
+            : e instanceof Error && e.message === "DATABASE_NOT_CONFIGURED"
+              ? "DATABASE_NOT_CONFIGURED"
+              : "REQUEST_FAILED";
     const status =
       e instanceof AppError
         ? e.status
-        : e instanceof z.ZodError
-          ? 400
-          : code === "DATABASE_NOT_CONFIGURED"
-            ? 503
-            : 500;
+        : invalidTransition
+          ? 409
+          : e instanceof z.ZodError
+            ? 400
+            : code === "DATABASE_NOT_CONFIGURED"
+              ? 503
+              : 500;
     return response(
       {
         code,

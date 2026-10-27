@@ -5,13 +5,14 @@ import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
 import { AdminOperations } from "./admin-operations";
-import { AdminAppointmentActions } from "./admin-appointment-actions";
+import { AdminAppointmentList } from "./admin-appointment-list";
 import { AdminChallenge } from "./admin-login";
 import { AdminSecuritySettings } from "./admin-security-settings";
 import { AdminSiteSettings, type ContentRow } from "./admin-site-settings";
 import { ReceiptStorageSettings } from "./receipt-storage-settings";
 import { ConsultationFees } from "./consultation-fees";
 import { adminLabel } from "@/lib/admin-labels";
+import { ConsultationPhoneSettings } from "./consultation-phone-settings";
 type AdminData = {
   role: string;
   currentUserId: string;
@@ -74,8 +75,6 @@ export function AdminPanel({
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("");
   async function load() {
     const r = await fetch("/api/admin/overview", {
       headers: { "Accept-Language": locale },
@@ -390,184 +389,12 @@ export function AdminPanel({
               </>
             )}
             {tab === "appointments" && (
-              <>
-                <div className="notice booking-guide">
-                  <h2>
-                    {fa
-                      ? "راهنمای نوبت و پرداخت"
-                      : "Booking and payment workflow"}
-                  </h2>
-                  <p>
-                    {fa
-                      ? "۱. بیمار نوع مشاوره و روش هماهنگی زمان را انتخاب می‌کند. ۲. مبلغ اعلام‌شده را واریز و رسید را بارگذاری می‌کند. ۳. از «رسیدها و زمان‌بندی» تصویر رسید را ببینید و واریز را جداگانه در حساب بانک تطبیق دهید. ۴. با تأیید واریز، نوبت دارای زمان رزروشده قطعی می‌شود؛ اگر زمان مشخص نشده باشد، در انتظار زمان‌بندی می‌ماند و باید زمان را تعیین کنید. ارسال رسید به‌تنهایی نوبت را قطعی نمی‌کند. لغو نوبت نیز به‌معنای استرداد خودکار وجه نیست."
-                      : "The patient selects a consultation, transfers payment and uploads a receipt. Open Receipts & scheduling and match the deposit independently in your bank account before approving it. A reserved time is then confirmed; otherwise assign a time. Cancelling an appointment does not automatically refund a transfer."}
-                  </p>
-                </div>
-                <div className="two-cols">
-                  <div className="field">
-                    <label htmlFor="appointment-search">
-                      {fa
-                        ? "جست‌وجوی نام، شماره همراه یا کد پیگیری"
-                        : "Search name, phone or tracking code"}
-                    </label>
-                    <input
-                      id="appointment-search"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="appointment-filter">
-                      {fa ? "وضعیت" : "Status"}
-                    </label>
-                    <select
-                      id="appointment-filter"
-                      value={filter}
-                      onChange={(e) => setFilter(e.target.value)}
-                    >
-                      <option value="">{fa ? "همه" : "All"}</option>
-                      {[
-                        "awaiting_payment",
-                        "awaiting_verification",
-                        "awaiting_scheduling",
-                        "confirmed",
-                        "in_progress",
-                        "completed",
-                        "cancelled",
-                        "expired",
-                      ].map((v) => (
-                        <option key={v} value={v}>
-                          {adminLabel(v, fa)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                {!data.appointments.length ? (
-                  <div className="empty-state">
-                    <h2>
-                      {fa
-                        ? "نوبتی برای بررسی وجود ندارد"
-                        : "No appointments to review"}
-                    </h2>
-                  </div>
-                ) : (
-                  data.appointments
-                    .filter(
-                      (a) =>
-                        (!filter || a.status === filter) &&
-                        `${a.trackingCode} ${a.patientName || ""} ${a.patientPhone || ""}`.includes(
-                          search,
-                        ),
-                    )
-                    .map((a) => (
-                      <div
-                        className="content-panel"
-                        key={a.id}
-                        style={{ marginBottom: 15 }}
-                      >
-                        <strong dir="ltr">{a.trackingCode}</strong>
-                        <p>
-                          {a.patientName || (fa ? "بیمار" : "Patient")} ·{" "}
-                          <span dir="ltr">{a.patientPhone}</span>
-                        </p>
-                        <p>
-                          {fa ? "مبلغ: " : "Amount: "}
-                          {a.priceRial.toLocaleString(
-                            fa ? "fa-IR" : "en-US",
-                          )}{" "}
-                          {fa ? "ریال" : "IRR"}
-                        </p>
-                        <p>
-                          {adminLabel(a.status, fa)} /{" "}
-                          {adminLabel(a.paymentStatus, fa)}
-                        </p>
-                        {data.role !== "staff" &&
-                          a.paymentStatus === "under_review" && (
-                            <div
-                              style={{
-                                display: "flex",
-                                gap: 10,
-                                flexWrap: "wrap",
-                              }}
-                            >
-                              <button
-                                className="button button-small"
-                                disabled={busy}
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      fa
-                                        ? "آیا واریز را مستقلاً در حساب بانکی بررسی و تأیید کرده‌اید؟"
-                                        : "Have you independently verified the deposit in the bank account?",
-                                    )
-                                  )
-                                    void save(
-                                      `appointments/${a.id}/payment`,
-                                      {
-                                        action: "approve",
-                                        bankDepositVerified: true,
-                                        idempotencyKey: crypto.randomUUID(),
-                                      },
-                                      "POST",
-                                    );
-                                }}
-                              >
-                                {fa
-                                  ? "تأیید واریز بانکی"
-                                  : "Approve verified deposit"}
-                              </button>
-                              <button
-                                className="button button-small button-white"
-                                style={{ borderColor: "#ddd" }}
-                                disabled={busy}
-                                onClick={() =>
-                                  save(
-                                    `appointments/${a.id}/payment`,
-                                    {
-                                      action: "reject",
-                                      idempotencyKey: crypto.randomUUID(),
-                                    },
-                                    "POST",
-                                  )
-                                }
-                              >
-                                {fa ? "رد پرداخت" : "Reject payment"}
-                              </button>
-                              <button
-                                className="text-link"
-                                style={{ background: "none" }}
-                                disabled={busy}
-                                onClick={() =>
-                                  save(
-                                    `appointments/${a.id}/payment`,
-                                    {
-                                      action: "request_information",
-                                      idempotencyKey: crypto.randomUUID(),
-                                    },
-                                    "POST",
-                                  )
-                                }
-                              >
-                                {fa
-                                  ? "درخواست رسید مجدد"
-                                  : "Request receipt resubmission"}
-                              </button>
-                            </div>
-                          )}
-                        {data.role !== "staff" && (
-                          <AdminAppointmentActions
-                            locale={locale}
-                            id={a.id}
-                            consultationTypeId={a.consultationTypeId}
-                            status={a.status}
-                            onChange={load}
-                          />
-                        )}
-                      </div>
-                    ))
-                )}
-              </>
+              <AdminAppointmentList
+                locale={locale}
+                role={data.role}
+                revision={data}
+                onChanged={load}
+              />
             )}
             {tab === "consultations" &&
               data.consultations.map((c) => (
@@ -578,6 +405,14 @@ export function AdminPanel({
                   onSaved={load}
                 />
               ))}
+            {tab === "platforms" && (
+              <ConsultationPhoneSettings
+                locale={locale}
+                settings={data.settings}
+                busy={busy}
+                save={save}
+              />
+            )}
             {tab === "platforms" && (
               <p className="notice">
                 {fa

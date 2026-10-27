@@ -595,6 +595,13 @@ export function AdminOperations({
                     ))}
                   </select>
                 </div>
+                {smsKey === "appointment_confirmed" && (
+                  <p className="notice">
+                    {fa
+                      ? "متن ذخیره‌شده استفاده می‌شود. برای جای‌گذاری اطلاعات از {doctor}، {type}، {date}، {tracking} و {panel} استفاده کنید. اطلاعات ضروری که در متن نباشد، خودکار به انتهای پیام اضافه می‌شود."
+                      : "Use {doctor}, {type}, {date}, {tracking} and {panel}. Required appointment details missing from the template are appended automatically."}
+                  </p>
+                )}
                 {(["fa", "en"] as const).map((l) => (
                   <div className="field" key={l}>
                     <label htmlFor={`sms-${l}`}>
@@ -638,6 +645,22 @@ export function AdminOperations({
                   <span>
                     {adminLabel(n.event, fa)} · {adminLabel(n.status, fa)} ·{" "}
                     {n.attempts}
+                    {n.lastError && (
+                      <small style={{ display: "block" }}>
+                        {fa ? "آخرین خطا: " : "Last error: "}
+                        {String(n.lastError) === "SMS_NOT_CONFIGURED"
+                          ? fa
+                            ? "تنظیمات سرویس پیامک کامل نیست"
+                            : "SMS provider is not configured"
+                          : String(n.lastError)}
+                      </small>
+                    )}
+                    {n.status === "pending" && n.nextAttemptAt && (
+                      <small style={{ display: "block" }}>
+                        {fa ? "امکان تلاش بعدی از: " : "Next retry eligible: "}
+                        {formatJalali(String(n.nextAttemptAt), true)}
+                      </small>
+                    )}
                   </span>
                   {n.status === "failed" && (
                     <button

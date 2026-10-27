@@ -2,6 +2,7 @@ import { messengerLink } from "@/lib/booking-flow";
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { and, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "@/db";
 import {
   appointments,
@@ -23,6 +24,7 @@ import {
   canVerifyPayment,
 } from "@/lib/domain";
 import { AppError, requireUser } from "./security";
+import { expireBookingHolds } from "./availability";
 export async function bookAppointment(input: unknown) {
   const user = await requireUser();
   const data = bookingSchema.parse(input);
@@ -41,7 +43,16 @@ export async function bookAppointment(input: unknown) {
         ),
       )
       .limit(1);
-    if (existing) return existing;
+    if (existing) {
+      if (
+        existing.consultationTypeId !== data.consultationTypeId ||
+        existing.schedulingMode !== data.schedulingMode ||
+        existing.slotId !==
+          (data.schedulingMode === "patient" ? data.slotId : null)
+      )
+        throw new AppError(409, "IDEMPOTENCY_CONFLICT");
+      return existing;
+    }
     const [settings] = await tx
       .select()
       .from(websiteSettings)
@@ -112,6 +123,11 @@ export async function bookAppointment(input: unknown) {
         )
         .for("update");
       if (!slot) throw new AppError(409, "SLOT_UNAVAILABLE");
+      if (
+        slot.endsAt.getTime() - slot.startsAt.getTime() <
+        type.durationMinutes * 60000
+      )
+        throw new AppError(409, "SLOT_UNAVAILABLE");
       const blocked = await tx
         .select({ id: blockedDates.id })
         .from(blockedDates)
@@ -123,6 +139,7 @@ export async function bookAppointment(input: unknown) {
         )
         .limit(1);
       if (blocked.length) throw new AppError(409, "SLOT_UNAVAILABLE");
+      const bookedType = alias(consultationTypes, "booked_type");
       const conflicts = await tx
         .select({ id: appointments.id })
         .from(appointments)
@@ -130,16 +147,14 @@ export async function bookAppointment(input: unknown) {
           appointmentSlots,
           eq(appointmentSlots.id, appointments.slotId),
         )
+        .innerJoin(
+          bookedType,
+          eq(bookedType.id, appointments.consultationTypeId),
+        )
         .where(
           and(
-            lt(
-              appointmentSlots.startsAt,
-              new Date(slot.endsAt.getTime() + type.bufferMinutes * 60000),
-            ),
-            gt(
-              appointmentSlots.endsAt,
-              new Date(slot.startsAt.getTime() - type.bufferMinutes * 60000),
-            ),
+            sql`${appointmentSlots.startsAt} < ${slot.endsAt}::timestamptz + greatest(${type.bufferMinutes}, ${bookedType.bufferMinutes}) * interval '1 minute'`,
+            sql`${appointmentSlots.endsAt} > ${slot.startsAt}::timestamptz - greatest(${type.bufferMinutes}, ${bookedType.bufferMinutes}) * interval '1 minute'`,
             ne(appointments.status, "cancelled"),
             ne(appointments.status, "rejected"),
             ne(appointments.status, "expired"),
@@ -196,6 +211,11 @@ export async function reviewPayment(
   if (!canVerifyPayment(user.role)) throw new AppError(403, "FORBIDDEN");
   if (data.action === "approve" && !data.bankDepositVerified)
     throw new AppError(400, "BANK_VERIFICATION_REQUIRED");
+  if (
+    data.action !== "approve" &&
+    (!data.note?.trim() || data.note.trim().length < 3)
+  )
+    throw new AppError(400, "REVIEW_REASON_REQUIRED");
   return getDb().transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext('receipt-cleanup'))`,
@@ -230,9 +250,17 @@ export async function reviewPayment(
           ? "rejected"
           : "additional_information_required";
     assertTransition("payment", a.paymentStatus, paymentStatus);
+    const [reservedSlot] =
+      data.action === "approve" && a.slotId
+        ? await tx
+            .select({ startsAt: appointmentSlots.startsAt })
+            .from(appointmentSlots)
+            .where(eq(appointmentSlots.id, a.slotId))
+        : [];
+    const hasFutureSlot = !!reservedSlot && reservedSlot.startsAt > new Date();
     const status =
       data.action === "approve"
-        ? a.slotId
+        ? hasFutureSlot
           ? "confirmed"
           : "awaiting_scheduling"
         : "awaiting_verification";
@@ -265,6 +293,9 @@ export async function reviewPayment(
       .set({
         paymentStatus,
         status,
+        ...(data.action === "approve" && !hasFutureSlot
+          ? { slotId: null }
+          : {}),
         confirmedAt: status === "confirmed" ? new Date() : null,
         updatedAt: new Date(),
       })
@@ -282,6 +313,7 @@ export async function reviewPayment(
       actorId: user.id,
       fromState: a.status,
       toState: status,
+      note: data.note?.trim(),
     });
     await tx.insert(auditLogs).values({
       actorId: user.id,
@@ -292,7 +324,10 @@ export async function reviewPayment(
     await tx.insert(notifications).values({
       userId: a.patientId,
       appointmentId: id,
-      event: `payment_${paymentStatus}`,
+      event:
+        status === "confirmed"
+          ? "appointment_confirmed"
+          : `payment_${paymentStatus}`,
       dedupeKey: `payment:${data.idempotencyKey}`,
     });
     return { ok: true };
@@ -301,6 +336,7 @@ export async function reviewPayment(
 export async function assignSlot(id: string, slotId: string) {
   const user = await requireUser(true);
   if (!canVerifyPayment(user.role)) throw new AppError(403, "FORBIDDEN");
+  await expireBookingHolds();
   return getDb().transaction(async (tx) => {
     await tx.execute(
       sql`select pg_advisory_xact_lock(hashtext('doctor-schedule'))`,
@@ -329,6 +365,19 @@ export async function assignSlot(id: string, slotId: string) {
       )
       .for("update");
     if (!slot) throw new AppError(409, "SLOT_UNAVAILABLE");
+    const [type] = await tx
+      .select({
+        duration: consultationTypes.durationMinutes,
+        buffer: consultationTypes.bufferMinutes,
+      })
+      .from(consultationTypes)
+      .where(eq(consultationTypes.id, a.consultationTypeId));
+    if (
+      !type ||
+      slot.endsAt.getTime() - slot.startsAt.getTime() <
+        a.durationMinutes * 60000
+    )
+      throw new AppError(409, "SLOT_UNAVAILABLE");
     const blocked = await tx
       .select({ id: blockedDates.id })
       .from(blockedDates)
@@ -340,15 +389,17 @@ export async function assignSlot(id: string, slotId: string) {
       )
       .limit(1);
     if (blocked.length) throw new AppError(409, "SLOT_UNAVAILABLE");
+    const bookedType = alias(consultationTypes, "existing_consultation");
     const conflict = await tx
       .select({ id: appointments.id })
       .from(appointments)
       .innerJoin(appointmentSlots, eq(appointmentSlots.id, appointments.slotId))
+      .innerJoin(bookedType, eq(bookedType.id, appointments.consultationTypeId))
       .where(
         and(
           ne(appointments.id, id),
-          lt(appointmentSlots.startsAt, slot.endsAt),
-          gt(appointmentSlots.endsAt, slot.startsAt),
+          sql`${appointmentSlots.startsAt} < ${slot.endsAt}::timestamptz + greatest(${type.buffer}, ${bookedType.bufferMinutes}) * interval '1 minute'`,
+          sql`${appointmentSlots.endsAt} > ${slot.startsAt}::timestamptz - greatest(${type.buffer}, ${bookedType.bufferMinutes}) * interval '1 minute'`,
           inArray(appointments.status, [
             "awaiting_payment",
             "awaiting_verification",

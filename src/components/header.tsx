@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { copy, type Locale } from "@/lib/content";
 import { Icon } from "./icon";
+import { AccountMenu } from "./account-menu";
 export function Brand({
   locale,
   content,
@@ -69,10 +70,7 @@ export function Header({
           {locale === "fa" ? "EN" : "فا"}
         </Link>
         <span className="nav-divider" />
-        <Link className="login-link" href={`/${locale}/login`}>
-          <Icon name="user" size={17} />
-          {t.login}
-        </Link>
+        <AccountMenu locale={locale} />
         <Link className="button button-small" href={`/${locale}/booking`}>
           {t.book}
           <Icon name="arrow" size={16} />

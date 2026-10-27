@@ -14,6 +14,8 @@ export function ConsultationContact({
     { key: string; url: string }[] | null
   >(null);
   const [error, setError] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [type, setType] = useState("text");
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
@@ -23,7 +25,11 @@ export function ConsultationContact({
       .then(async (r) => {
         const d = await r.json();
         if (!r.ok) throw new Error(d.message);
-        if (active) setChannels(d.channels);
+        if (active) {
+          setChannels(d.channels);
+          setInstructions(d.instructions?.[locale] || "");
+          setType(d.type || "text");
+        }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -34,11 +40,16 @@ export function ConsultationContact({
   }, [id, locale, retry]);
   return (
     <section className="consultation-contact">
-      <h3>{fa ? "ارتباط با پزشک و ارسال مدارک" : "Doctor chat & documents"}</h3>
+      <h3>{fa ? "راه ارتباط با پزشک" : "Contact your doctor"}</h3>
+      {instructions && <p>{instructions}</p>}
       <p>
-        {fa
-          ? "پس از ورود به چت می‌توانید آزمایش، عکس و مدارک مربوط به مشاوره را برای پزشک ارسال کنید. پیام از طرف سایت خودکار ارسال نمی‌شود."
-          : "Open your doctor's chat to send relevant test results, images and documents. The website does not send a message automatically."}
+        {type === "phone"
+          ? fa
+            ? "برای مشاوره تلفنی طبق راهنمای پزشک و در زمان نوبت اقدام کنید."
+            : "Follow your doctor's call instructions at your appointment time."
+          : fa
+            ? "پس از ورود به چت می‌توانید آزمایش، عکس و مدارک مربوط به مشاوره را برای پزشک ارسال کنید. پیام از طرف سایت خودکار ارسال نمی‌شود."
+            : "Open your doctor's chat to send relevant test results, images and documents. The website does not send a message automatically."}
       </p>
       {channels === null ? (
         error ? (
@@ -66,16 +77,20 @@ export function ConsultationContact({
               target="_blank"
               rel="noopener noreferrer"
             >
-              {fa
-                ? `ورود به چت ${adminLabel(c.key, true)}`
-                : `Open ${adminLabel(c.key, false)} chat`}
+              {c.key === "phone"
+                ? fa
+                  ? "تماس با پزشک"
+                  : "Call doctor"
+                : fa
+                  ? `ورود به چت ${adminLabel(c.key, true)}`
+                  : `Open ${adminLabel(c.key, false)} chat`}
             </a>
           ))}
         </div>
-      ) : (
+      ) : instructions ? null : (
         <p className="notice warn">
           {fa
-            ? "راه ارتباطی پزشک هنوز ثبت نشده است. از صفحه تماس برای هماهنگی استفاده کنید؛ در پنل مدیر بخش «راه‌های ارتباطی مشاوره» باید تکمیل شود."
+            ? "راه ارتباطی پزشک هنوز ثبت نشده است. لطفاً از صفحه تماس برای هماهنگی استفاده کنید."
             : "Doctor chat details have not been configured. Please use the contact page to coordinate."}
         </p>
       )}

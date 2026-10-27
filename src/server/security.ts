@@ -94,7 +94,12 @@ export async function checkOrigin(request: Request) {
   const origin = request.headers.get("origin");
   const expected =
     process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;
-  if (!origin || origin !== new URL(expected).origin)
+  const allowed = new Set([new URL(expected).origin]);
+  // Vercel preview deployments use their own host while retaining production settings.
+  if (process.env.VERCEL_URL) allowed.add(`https://${process.env.VERCEL_URL}`);
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL)
+    allowed.add(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  if (!origin || !allowed.has(origin))
     throw new AppError(403, "INVALID_ORIGIN");
 }
 export async function rateLimit(
