@@ -1,6 +1,24 @@
+import {
+  isTestPatient,
+  loginTestPatient,
+  createTestPatient,
+  testAppointments,
+  bookTestAppointment,
+  testPatientAction,
+} from "@/server/test-patient";
+import { messengerLink, patientAppointmentView } from "@/lib/booking-flow";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { and, asc, desc, eq, gt, getTableColumns, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  inArray,
+  getTableColumns,
+  sql,
+} from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
@@ -31,6 +49,10 @@ const response = (data: unknown, status = 200) =>
     headers: { "Cache-Control": "private, no-store" },
   });
 const messages: Record<string, [string, string]> = {
+  PRICE_CHANGED: [
+    "تعرفه تغییر کرده است؛ صفحه را دوباره بارگذاری و مبلغ جدید را بررسی کنید.",
+    "The price changed. Reload and review the new amount.",
+  ],
   DATABASE_NOT_CONFIGURED: [
     "اتصال پایگاه داده هنوز راه‌اندازی نشده است.",
     "Database connection is not configured yet.",
@@ -44,6 +66,22 @@ const messages: Record<string, [string, string]> = {
     "Authentication is not configured yet.",
   ],
   SIGN_IN_REQUIRED: ["ابتدا وارد حساب خود شوید.", "Please sign in first."],
+  INVALID_TEST_LOGIN: [
+    "نام کاربری یا گذرواژه آزمایشی نادرست است.",
+    "Invalid test username or password.",
+  ],
+  PLATFORM_CONTACT_REQUIRED: [
+    "برای فعال‌کردن پیام‌رسان، شماره، شناسه یا لینک معتبر وارد کنید.",
+    "Enter a valid messenger number, username or link before enabling it.",
+  ],
+  PAYMENT_NOT_APPROVED: [
+    "ابتدا پرداخت باید تأیید شود.",
+    "Payment approval is required.",
+  ],
+  TEST_LOGIN_ONLY: [
+    "برای حساب تست از ورود آزمایشی استفاده کنید.",
+    "Use test account password sign-in.",
+  ],
   INVALID_OTP: [
     "کد نامعتبر یا منقضی شده است.",
     "The code is invalid or expired.",
@@ -82,17 +120,25 @@ async function dispatch(request: Request, segments: string[], method: string) {
       .select()
       .from(s.websiteSettings)
       .where(eq(s.websiteSettings.key, "booking"));
+    const auth = await currentUser();
+    const testMode =
+      !!auth &&
+      auth.user.role === "patient" &&
+      (await isTestPatient(auth.user.id));
+    const platforms = await db.select().from(s.messagingPlatforms);
     return response({
-      ready: !!(setting?.value as { enabled?: boolean })?.enabled,
-      booking: setting?.value,
+      testMode,
+      ready: testMode || !!(setting?.value as { enabled?: boolean })?.enabled,
+      booking: testMode
+        ? { enabled: true, doctorScheduling: true, patientScheduling: true }
+        : setting?.value,
       types: await db
         .select()
         .from(s.consultationTypes)
-        .where(eq(s.consultationTypes.enabled, true)),
-      platforms: await db
-        .select()
-        .from(s.messagingPlatforms)
-        .where(eq(s.messagingPlatforms.enabled, true)),
+        .where(inArray(s.consultationTypes.key, ["phone", "text"])),
+      platforms: platforms
+        .filter((p) => testMode || (p.enabled && messengerLink(p)))
+        .map((p) => ({ id: p.id, key: p.key })),
       slots: await db
         .select()
         .from(s.appointmentSlots)
@@ -115,14 +161,42 @@ async function dispatch(request: Request, segments: string[], method: string) {
     const auth = await currentUser();
     return response({
       user: auth
-        ? { id: auth.user.id, name: auth.user.name, role: auth.user.role }
+        ? {
+            id: auth.user.id,
+            name: auth.user.name,
+            role: auth.user.role,
+            phone: auth.user.phone,
+          }
         : null,
+      testMode:
+        auth?.user.role === "patient"
+          ? await isTestPatient(auth.user.id)
+          : false,
     });
   }
   if (!dbConfigured) throw new AppError(503, "DATABASE_NOT_CONFIGURED");
   if (method !== "GET") await checkOrigin(request);
+  if (method === "POST" && path === "auth/test-patient")
+    return response(await loginTestPatient(await request.json()));
+  if (
+    method === "POST" &&
+    segments[0] === "test-patient" &&
+    segments[1] === "appointments" &&
+    segments[2]
+  ) {
+    const user = await requireUser();
+    return response(
+      await testPatientAction(
+        user.id,
+        uuid.parse(segments[2]),
+        await request.json(),
+      ),
+    );
+  }
   if (method === "POST" && path === "auth/otp") {
     const data = z.object({ phone: z.string() }).parse(await request.json());
+    if (data.phone === "09000000000")
+      throw new AppError(400, "TEST_LOGIN_ONLY");
     await requestOtp(data.phone);
     return response({ ok: true });
   }
@@ -149,10 +223,24 @@ async function dispatch(request: Request, segments: string[], method: string) {
     (await cookies()).delete("medical_session");
     return response({ ok: true });
   }
-  if (method === "POST" && path === "appointments")
-    return response(await bookAppointment(await request.json()), 201);
+  if (method === "POST" && path === "appointments") {
+    const user = await requireUser();
+    const input = await request.json();
+    return response(
+      patientAppointmentView(
+        (await isTestPatient(user.id))
+          ? await bookTestAppointment(user.id, input)
+          : await bookAppointment(input),
+      ),
+      201,
+    );
+  }
   if (method === "GET" && path === "appointments") {
     const user = await requireUser();
+    if (await isTestPatient(user.id))
+      return response(
+        (await testAppointments(user.id)).map(patientAppointmentView),
+      );
     return response(
       await getDb()
         .select({
@@ -167,7 +255,8 @@ async function dispatch(request: Request, segments: string[], method: string) {
         )
         .where(eq(s.appointments.patientId, user.id))
         .orderBy(desc(s.appointments.createdAt))
-        .limit(100),
+        .limit(100)
+        .then((rows) => rows.map(patientAppointmentView)),
     );
   }
   if (
@@ -192,8 +281,62 @@ async function dispatch(request: Request, segments: string[], method: string) {
       .values({ appointmentId: id, patientId: user.id, kind: data.kind });
     return response({ ok: true });
   }
+  if (
+    method === "GET" &&
+    segments[0] === "appointments" &&
+    segments[2] === "contact"
+  ) {
+    const user = await requireUser();
+    const id = uuid.parse(segments[1]);
+    const [item] = (await isTestPatient(user.id))
+      ? (await testAppointments(user.id)).filter((a) => a.id === id)
+      : await getDb()
+          .select()
+          .from(s.appointments)
+          .where(
+            and(
+              eq(s.appointments.id, id),
+              eq(s.appointments.patientId, user.id),
+            ),
+          );
+    if (!item) throw new AppError(404, "NOT_FOUND");
+    if (
+      item.paymentStatus !== "approved" ||
+      ![
+        "confirmed",
+        "awaiting_scheduling",
+        "in_progress",
+        "completed",
+      ].includes(item.status)
+    )
+      throw new AppError(403, "PAYMENT_NOT_APPROVED");
+    const platform = (item.platformSnapshot || {}) as { key?: string };
+    const options = await getDb()
+      .select()
+      .from(s.messagingPlatforms)
+      .where(eq(s.messagingPlatforms.enabled, true));
+    return response({
+      channels: options
+        .filter((p) => messengerLink(p))
+        .sort(
+          (a, b) =>
+            Number(b.key === platform.key) - Number(a.key === platform.key),
+        )
+        .map((p) => ({
+          key: p.key,
+          url: messengerLink(p),
+          contactNumber: p.contactNumber,
+          username: p.username,
+        })),
+      testMode: await isTestPatient(user.id),
+    });
+  }
   if (segments[0] === "admin") {
     const user = await requireUser(true);
+    if (method === "POST" && path === "admin/test-patient") {
+      if (user.role !== "super_admin") throw new AppError(403, "FORBIDDEN");
+      return response(await createTestPatient(user.id), 201);
+    }
     const db = getDb();
     const operation = await adminOperations(request, segments, method, user);
     if (operation) return operation;
@@ -302,7 +445,14 @@ async function dispatch(request: Request, segments: string[], method: string) {
     if (method === "PUT" && path === "admin/settings") {
       const data = z
         .object({
-          key: z.enum(["booking", "branding", "contact", "policies", "seo"]),
+          key: z.enum([
+            "booking",
+            "branding",
+            "contact",
+            "policies",
+            "seo",
+            "social",
+          ]),
           value: z.record(z.string(), z.unknown()),
         })
         .parse(await request.json());
@@ -396,6 +546,13 @@ async function dispatch(request: Request, segments: string[], method: string) {
             .nullable(),
         })
         .parse(await request.json());
+      const [existingPlatform] = await db
+        .select()
+        .from(s.messagingPlatforms)
+        .where(eq(s.messagingPlatforms.id, uuid.parse(segments[2])));
+      if (!existingPlatform) throw new AppError(404, "NOT_FOUND");
+      if (data.enabled && !messengerLink({ ...existingPlatform, ...data }))
+        throw new AppError(400, "PLATFORM_CONTACT_REQUIRED");
       await db
         .update(s.messagingPlatforms)
         .set({ ...data, updatedAt: new Date() })
@@ -549,16 +706,14 @@ async function dispatch(request: Request, segments: string[], method: string) {
               .delete(s.medicalReferences)
               .where(eq(s.medicalReferences.articleId, a.id));
             if (data.references.length)
-              await tx
-                .insert(s.medicalReferences)
-                .values(
-                  data.references.map((ref) => ({
-                    articleId: a.id,
-                    title: ref.title,
-                    url: ref.url,
-                    checkedAt: new Date(),
-                  })),
-                );
+              await tx.insert(s.medicalReferences).values(
+                data.references.map((ref) => ({
+                  articleId: a.id,
+                  title: ref.title,
+                  url: ref.url,
+                  checkedAt: new Date(),
+                })),
+              );
           }
           return a;
         }),

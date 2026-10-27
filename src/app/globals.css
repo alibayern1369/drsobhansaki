@@ -1412,3 +1412,51 @@ h2 {
     font-size: 12px;
   }
 }
+
+.consultation-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.live-booking-form {
+  margin-top: 24px;
+}
+.live-booking-form > .button {
+  margin-top: 18px;
+}
+.live-booking-form > .checkbox {
+  margin: 22px 0;
+}
+.booking-progress {
+  flex-wrap: wrap;
+}
+.choice small {
+  display: block;
+  color: #75849b;
+  margin-top: 5px;
+}
+@media (max-width: 650px) {
+  .consultation-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.consultation-contact,
+.test-payment {
+  margin-top: 24px;
+  padding: 20px;
+  background: #f4f8ff;
+  border: 1px solid #dce8f7;
+  border-radius: 16px;
+}
+.consultation-contact p,
+.test-payment p {
+  margin: 12px 0;
+  font-size: 13px;
+}
+.chat-buttons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.consultation-contact h3 {
+  font-size: 18px;
+}

@@ -7,6 +7,8 @@ import { formatMoney } from "@/lib/domain";
 import { Icon } from "./icon";
 import { upload } from "@vercel/blob/client";
 import { MAX_RECEIPT_BYTES, RECEIPT_MIME_TYPES } from "@/lib/receipt-policy";
+import { ConsultationContact } from "./consultation-contact";
+import { TestPatientPayment } from "./test-patient-payment";
 import { PatientReceipts } from "./patient-receipts";
 type Appointment = {
   id: string;
@@ -14,7 +16,7 @@ type Appointment = {
   status: string;
   paymentStatus: string;
   priceRial: number;
-  typeSnapshot: { key: string };
+  typeSnapshot: { key: string; testMode?: boolean };
   slotId: string | null;
   createdAt: string;
   startsAt: string | null;
@@ -22,11 +24,20 @@ type Appointment = {
 export function PatientDashboard({ locale }: { locale: Locale }) {
   const fa = locale === "fa";
   const t = copy[locale];
+  const [testMode, setTestMode] = useState(false);
+  const reload = async () => {
+    const r = await fetch("/api/appointments");
+    if (!r.ok) throw new Error("Unable to load appointments");
+    setItems(await r.json());
+  };
   const [items, setItems] = useState<Appointment[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   useEffect(() => {
+    void fetch("/api/session")
+      .then((r) => r.json())
+      .then((s) => setTestMode(!!s.testMode));
     fetch("/api/appointments", { headers: { "Accept-Language": locale } })
       .then(async (r) => {
         const d = await r.json();
@@ -38,6 +49,24 @@ export function PatientDashboard({ locale }: { locale: Locale }) {
   }, [locale]);
   async function request(id: string, kind: string) {
     try {
+      if (testMode) {
+        if (kind === "reschedule") {
+          setMessage(
+            fa
+              ? "در حالت تست، زمان به‌صورت آزمایشی تعیین می‌شود."
+              : "Test appointment times are simulated.",
+          );
+          return;
+        }
+        const res = await fetch(`/api/test-patient/appointments/${id}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cancel" }),
+        });
+        if (!res.ok) throw new Error("Unable to cancel test booking");
+        await reload();
+        return;
+      }
       const r = await fetch(`/api/appointments/${id}/request`, {
         method: "POST",
         headers: {
@@ -66,6 +95,13 @@ export function PatientDashboard({ locale }: { locale: Locale }) {
           <Icon name="plus" size={16} />
         </Link>
       </div>
+      {testMode && (
+        <p className="notice warn">
+          {fa
+            ? "حساب بیمار آزمایشی — نوبت‌ها و پرداخت‌های این حساب مستقل و شبیه‌سازی‌شده‌اند."
+            : "Test patient account — bookings and payments are isolated simulations."}
+        </p>
+      )}
       <div className="stats-grid">
         {(fa
           ? [
@@ -152,39 +188,59 @@ export function PatientDashboard({ locale }: { locale: Locale }) {
               <span>{fa ? "تعرفه توافق‌شده" : "Agreed price"}</span>
               <strong>{formatMoney(a.priceRial, locale)}</strong>
             </div>
-            {[
-              "awaiting_payment",
-              "rejected",
-              "additional_information_required",
-            ].includes(a.paymentStatus) && (
-              <ReceiptForm
-                appointmentId={a.id}
+            {a.typeSnapshot.testMode && a.status !== "cancelled" && (
+              <TestPatientPayment
+                id={a.id}
+                status={a.paymentStatus}
                 locale={locale}
-                onSubmitted={() => {
-                  setItems((previous) =>
-                    previous.map((item) =>
-                      item.id === a.id
-                        ? {
-                            ...item,
-                            paymentStatus: "under_review",
-                            status: "awaiting_verification",
-                          }
-                        : item,
-                    ),
-                  );
-                  setMessage(
-                    fa
-                      ? "رسید خصوصی برای بررسی ارسال شد؛ واریز هنوز تأیید نشده است."
-                      : "Private receipt submitted for review. The bank transfer is not yet approved.",
-                  );
-                }}
+                onChange={reload}
               />
             )}
-            <PatientReceipts
-              appointmentId={a.id}
-              locale={locale}
-              refreshKey={a.paymentStatus}
-            />
+            {!a.typeSnapshot.testMode &&
+              [
+                "awaiting_payment",
+                "rejected",
+                "additional_information_required",
+              ].includes(a.paymentStatus) && (
+                <ReceiptForm
+                  appointmentId={a.id}
+                  locale={locale}
+                  onSubmitted={() => {
+                    setItems((previous) =>
+                      previous.map((item) =>
+                        item.id === a.id
+                          ? {
+                              ...item,
+                              paymentStatus: "under_review",
+                              status: "awaiting_verification",
+                            }
+                          : item,
+                      ),
+                    );
+                    setMessage(
+                      fa
+                        ? "رسید خصوصی برای بررسی ارسال شد؛ واریز هنوز تأیید نشده است."
+                        : "Private receipt submitted for review. The bank transfer is not yet approved.",
+                    );
+                  }}
+                />
+              )}
+            {!a.typeSnapshot.testMode && (
+              <PatientReceipts
+                appointmentId={a.id}
+                locale={locale}
+                refreshKey={a.paymentStatus}
+              />
+            )}
+            {a.paymentStatus === "approved" &&
+              [
+                "confirmed",
+                "awaiting_scheduling",
+                "in_progress",
+                "completed",
+              ].includes(a.status) && (
+                <ConsultationContact id={a.id} locale={locale} />
+              )}
             <div style={{ display: "flex", gap: 15, marginTop: 18 }}>
               <button
                 className="text-link"

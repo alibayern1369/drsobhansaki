@@ -36,7 +36,13 @@ const publicSettings = cache(async () => {
     .select({ key: websiteSettings.key, value: websiteSettings.value })
     .from(websiteSettings)
     .where(
-      inArray(websiteSettings.key, ["branding", "contact", "policies", "seo"]),
+      inArray(websiteSettings.key, [
+        "branding",
+        "contact",
+        "policies",
+        "seo",
+        "social",
+      ]),
     );
 });
 export async function publicSetting(key: string) {

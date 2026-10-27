@@ -8,6 +8,7 @@ export const bookingSchema = z
     schedulingMode: z.enum(["patient", "doctor"]),
     consent: z.literal(true),
     idempotencyKey: z.uuid(),
+    expectedPriceRial: z.number().int().min(0).max(2000000000).optional(),
   })
   .refine((x) => x.schedulingMode !== "patient" || !!x.slotId, {
     message: "Slot required",

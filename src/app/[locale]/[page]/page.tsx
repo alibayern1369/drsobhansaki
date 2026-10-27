@@ -28,6 +28,7 @@ export async function generateMetadata({
   params,
 }: {
   params: Promise<{ locale: string; page: string }>;
+  searchParams: Promise<{ next?: string }>;
 }) {
   const { locale, page } = await params;
   const title = titles[page as keyof typeof titles]?.[locale === "fa" ? 0 : 1];
@@ -54,8 +55,10 @@ export async function generateMetadata({
 }
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; page: string }>;
+  searchParams: Promise<{ next?: string }>;
 }) {
   const { locale, page } = await params;
   if (!isLocale(locale) || !(page in titles)) notFound();
@@ -73,7 +76,7 @@ export default async function Page({
   return (
     <main id="main">
       {page === "login" ? (
-        <LoginForm locale={locale} />
+        <LoginForm locale={locale} returnTo={(await searchParams)?.next} />
       ) : (
         <>
           <PageBanner

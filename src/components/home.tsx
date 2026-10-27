@@ -173,7 +173,7 @@ export function Home({
           </div>
           <p>{t.careDesc}</p>
         </div>
-        <div className="care-grid">
+        <div className="care-grid consultation-grid">
           {[
             {
               icon: "phone",
@@ -191,13 +191,6 @@ export function Home({
               desc: t.textDesc,
               img: siteAsset(branding?.medicalImageUrl, "/images/medical.jpg"),
               query: "text",
-            },
-            {
-              icon: "calendar",
-              title: t.appointment,
-              desc: t.appointmentDesc,
-              img: siteAsset(branding?.doctorImageUrl, "/images/doctor.jpg"),
-              query: "phone",
             },
           ].map((card, i) => (
             <Link

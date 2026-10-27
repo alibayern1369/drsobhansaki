@@ -57,6 +57,21 @@ const schemas = {
       interests: localized.optional(),
     })
     .passthrough(),
+  social: z.object({
+    phone: z.string().max(100).optional(),
+    whatsapp: z
+      .union([z.literal(""), z.url().refine((v) => v.startsWith("https://"))])
+      .optional(),
+    telegram: z
+      .union([z.literal(""), z.url().refine((v) => v.startsWith("https://"))])
+      .optional(),
+    instagram: z
+      .union([z.literal(""), z.url().refine((v) => v.startsWith("https://"))])
+      .optional(),
+    bale: z
+      .union([z.literal(""), z.url().refine((v) => v.startsWith("https://"))])
+      .optional(),
+  }),
   policies: z
     .object({ privacy: localized.optional(), terms: localized.optional() })
     .passthrough(),

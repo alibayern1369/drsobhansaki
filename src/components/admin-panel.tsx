@@ -107,6 +107,7 @@ export function AdminPanel({
                 "banks",
                 "calendar",
                 "platforms",
+                "social",
                 "sms",
                 "articles",
                 "content",
@@ -176,7 +177,13 @@ export function AdminPanel({
     ["consultations", "خدمات و تعرفه‌ها", "Consultations & pricing", "doctor"],
     ["banks", "حساب‌های بانکی", "Bank accounts", "copy"],
     ["calendar", "تقویم", "Calendar", "calendar"],
-    ["platforms", "پیام‌رسان‌ها", "Messaging platforms", "message"],
+    [
+      "platforms",
+      "راه‌های ارتباطی مشاوره",
+      "Consultation messengers",
+      "message",
+    ],
+    ["social", "شبکه‌های اجتماعی فوتر", "Footer social links", "send"],
     ["sms", "مدیریت پیامک", "SMS management", "phone"],
     ["articles", "مقالات پزشکی", "Medical articles", "file"],
     ["content", "محتوای سایت", "Website content", "file"],
@@ -571,6 +578,13 @@ export function AdminPanel({
                   onSaved={load}
                 />
               ))}
+            {tab === "platforms" && (
+              <p className="notice">
+                {fa
+                  ? "این شماره‌ها و شناسه‌ها فقط برای مشاوره هستند و از شبکه‌های اجتماعی فوتر مستقل‌اند. برای واتساپ شماره با کد کشور، برای تلگرام و بله شناسه یا لینک HTTPS وارد کنید. دکمه چت پس از تأیید پرداخت در پنل بیمار نمایش داده می‌شود؛ فایل و آزمایش از همان پیام‌رسان ارسال می‌شود."
+                  : "Consultation contacts are separate from footer social links. Enter a WhatsApp number or a Telegram/Bale username or HTTPS link. Approved patients can open chat and send documents there."}
+              </p>
+            )}
             {tab === "platforms" &&
               data.platforms.map((p) => (
                 <form
@@ -630,6 +644,7 @@ export function AdminPanel({
               </>
             )}
             {[
+              "social",
               "content",
               "branding",
               "seo",

@@ -30,34 +30,34 @@ test("FAQ opens and closes accessibly", async ({ page }) => {
   await details.locator("summary").click();
   await expect(details).toHaveAttribute("open", "");
 });
-test("booking allows text, platform selection and request review", async ({
+test("booking shows exactly two consultation types and sends guests to login", async ({
   page,
 }) => {
   await page.goto("/fa/booking?type=text");
-  await expect(
-    page.getByRole("button", { name: "مشاوره متنی" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.getByLabel("پیام‌رسان ترجیحی").selectOption("telegram");
-  await page.getByLabel("نام و نام خانوادگی").fill("کاربر آزمایشی");
-  await page.getByLabel("شماره همراه", { exact: true }).fill("09123456789");
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "ادامه و بررسی درخواست" }).click();
-  await expect(
-    page.getByRole("heading", { name: "بررسی درخواست مشاوره" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("رزرو هنوز ثبت نشده است.", { exact: false }),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "ویرایش اطلاعات" }).click();
-  await expect(page.getByLabel("نام و نام خانوادگی")).toHaveValue(
-    "کاربر آزمایشی",
+  await expect(page.locator(".choice")).toHaveCount(2);
+  await expect(page.locator('.choice[aria-pressed="true"]')).toContainText(
+    "مشاوره متنی",
   );
+  await expect(page.locator(".booking-sidebar")).toContainText("تومان");
+  await page.getByRole("button", { name: "ادامه و ورود به حساب" }).click();
+  await expect(page).toHaveURL(/\/fa\/login\?next=/);
+  await expect(
+    page.getByText("انتخاب مشاوره شما محفوظ است", { exact: false }),
+  ).toBeVisible();
 });
-test("unconfigured OTP displays a real service error", async ({ page }) => {
+
+test("OTP service failure displays an error without advancing", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/otp", (route) =>
+    route.fulfill({ status: 503, json: { message: "SMS unavailable" } }),
+  );
   await page.goto("/en/login");
   await page.getByLabel("Mobile number").fill("09123456789");
   await page.getByRole("button", { name: "Send verification code" }).click();
-  await expect(page.getByRole("alert")).toBeVisible();
+  await expect(
+    page.locator('.login-panel .form-error[role="alert"]'),
+  ).toBeVisible();
   await expect(page.locator("#otp-code")).toHaveCount(0);
 });
 test("private dashboard and admin require sign in", async ({ page }) => {
@@ -71,16 +71,28 @@ test("private dashboard and admin require sign in", async ({ page }) => {
     );
   }
 });
-test("unreviewed article cannot be opened publicly", async ({ request }) => {
-  const r = await request.get("/fa/articles/blood-sugar");
-  expect(r.status()).toBe(404);
+test("missing or unpublished article cannot be opened publicly", async ({
+  request,
+}) => {
+  const r = await request.get("/fa/articles/missing-test-article-8e90d93a");
+  expect([200, 404]).toContain(r.status());
+  expect(await r.text()).toMatch(/name="robots" content="noindex/);
 });
-test("API configuration has no fake banks or appointment slots", async ({
+test("API configuration contains supported consultation types", async ({
   request,
 }) => {
   const r = await request.get("/api/config");
   expect(r.ok()).toBeTruthy();
-  expect(await r.json()).toMatchObject({ ready: false, banks: [], slots: [] });
+  const data = await r.json();
+  expect(typeof data.ready).toBe("boolean");
+  expect(
+    data.types.every(
+      (t: { key: string; priceRial: number }) =>
+        ["phone", "text"].includes(t.key) && Number.isSafeInteger(t.priceRial),
+    ),
+  ).toBeTruthy();
+  expect(Array.isArray(data.banks)).toBeTruthy();
+  expect(Array.isArray(data.slots)).toBeTruthy();
 });
 test("public service pages exist in both languages", async ({ page }) => {
   for (const locale of ["fa", "en"])

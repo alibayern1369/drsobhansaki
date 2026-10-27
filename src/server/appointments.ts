@@ -1,3 +1,4 @@
+import { messengerLink } from "@/lib/booking-flow";
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { and, eq, gt, inArray, lt, ne, sql } from "drizzle-orm";
@@ -64,7 +65,13 @@ export async function bookAppointment(input: unknown) {
         ),
       )
       .limit(1);
-    if (!type) throw new AppError(400, "CONSULTATION_UNAVAILABLE");
+    if (!type || !["phone", "text"].includes(type.key))
+      throw new AppError(400, "CONSULTATION_UNAVAILABLE");
+    if (
+      data.expectedPriceRial !== undefined &&
+      data.expectedPriceRial !== type.priceRial
+    )
+      throw new AppError(409, "PRICE_CHANGED");
     let platform = null;
     if (type.key === "text") {
       if (!data.platformId) throw new AppError(400, "PLATFORM_REQUIRED");
@@ -78,7 +85,8 @@ export async function bookAppointment(input: unknown) {
           ),
         )
         .limit(1);
-      if (!p) throw new AppError(400, "PLATFORM_UNAVAILABLE");
+      if (!p || !messengerLink(p))
+        throw new AppError(400, "PLATFORM_UNAVAILABLE");
       platform = {
         key: p.key,
         link: p.link,

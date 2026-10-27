@@ -11,11 +11,11 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string; resume?: string }>;
 }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
-  const { type } = await searchParams;
+  const { type, resume } = await searchParams;
   return (
     <main id="main">
       <PageBanner
@@ -24,7 +24,11 @@ export default async function Page({
         description={copy[locale].processDesc}
       />
       <div className="page-content">
-        <BookingForm locale={locale} initialType={type} />
+        <BookingForm
+          locale={locale}
+          initialType={type}
+          resume={resume === "1"}
+        />
       </div>
     </main>
   );

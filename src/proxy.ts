@@ -5,7 +5,7 @@ export function proxy(request: NextRequest) {
   headers.set("x-locale", locale);
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const dev = process.env.NODE_ENV !== "production";
-  const csp = `default-src 'self'; script-src 'self' 'nonce-${nonce}'${dev ? " 'unsafe-eval'" : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://blob.vercel-storage.com https://*.blob.vercel-storage.com${dev ? " ws:" : ""}; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
+  const csp = `default-src 'self'; script-src 'self' 'nonce-${nonce}'${dev ? " 'unsafe-eval'" : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://blob.vercel-storage.com https://*.blob.vercel-storage.com${dev ? " ws:" : ""}; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'`;
   headers.set("x-nonce", nonce);
   headers.set("Content-Security-Policy", csp);
   const response = NextResponse.next({ request: { headers } });

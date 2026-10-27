@@ -2,11 +2,23 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { type Locale } from "@/lib/content";
+import { patientReturnTo } from "@/lib/booking-flow";
+import { normalizeDigits } from "@/lib/admin-labels";
 import { Icon } from "./icon";
 import { Button } from "./ui/button";
-export function LoginForm({ locale }: { locale: Locale }) {
+export function LoginForm({
+  locale,
+  returnTo,
+}: {
+  locale: Locale;
+  returnTo?: string;
+}) {
   const fa = locale === "fa";
   const router = useRouter();
+  const [testLogin, setTestLogin] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const destination = patientReturnTo(returnTo, locale);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
@@ -17,22 +29,33 @@ export function LoginForm({ locale }: { locale: Locale }) {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch(`/api/auth/${sent ? "verify" : "otp"}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept-Language": locale,
+      const res = await fetch(
+        `/api/auth/${testLogin ? "test-patient" : sent ? "verify" : "otp"}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept-Language": locale,
+          },
+          body: JSON.stringify(
+            testLogin
+              ? { username, password }
+              : {
+                  phone: normalizeDigits(phone),
+                  code: normalizeDigits(code),
+                  locale,
+                },
+          ),
         },
-        body: JSON.stringify({ phone, code, locale }),
-      });
+      );
       const data = await res.json();
       if (!res.ok)
         throw new Error(
           data.message ||
             (fa ? "امکان ورود فراهم نیست." : "Unable to sign in."),
         );
-      if (sent) {
-        router.push(`/${locale}/dashboard`);
+      if (sent || testLogin) {
+        router.push(destination);
         router.refresh();
       } else setSent(true);
     } catch (e) {
@@ -58,25 +81,81 @@ export function LoginForm({ locale }: { locale: Locale }) {
           ? "برای ورود یا ساخت حساب، شماره همراه خود را وارد کنید."
           : "Enter your mobile number to sign in or create an account."}
       </p>
+      {destination.includes("/booking") && (
+        <p className="notice">
+          {fa
+            ? "مرحله ۲: ورود؛ انتخاب مشاوره شما محفوظ است و بعد از ورود از همان مرحله ادامه می‌دهید."
+            : "Step 2: sign in. Your consultation selection is saved."}
+        </p>
+      )}
+      <button
+        className="text-link"
+        type="button"
+        onClick={() => {
+          setTestLogin((v) => !v);
+          setSent(false);
+          setError("");
+        }}
+      >
+        {testLogin
+          ? fa
+            ? "ورود با شماره همراه"
+            : "Mobile OTP sign-in"
+          : fa
+            ? "ورود آزمایشی با گذرواژه"
+            : "Test patient password sign-in"}
+      </button>
       <form onSubmit={submit}>
-        <div className="field">
-          <label htmlFor="login-phone">
-            {fa ? "شماره همراه" : "Mobile number"}
-          </label>
-          <input
-            id="login-phone"
-            dir="ltr"
-            type="tel"
-            autoComplete="tel"
-            pattern="09[0-9]{9}"
-            placeholder="09xxxxxxxxx"
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            disabled={sent}
-          />
-        </div>
-        {sent && (
+        {testLogin ? (
+          <>
+            <div className="field">
+              <label htmlFor="test-username">
+                {fa ? "نام کاربری آزمایشی" : "Test username"}
+              </label>
+              <input
+                id="test-username"
+                autoComplete="username"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                dir="ltr"
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="test-password">
+                {fa ? "گذرواژه آزمایشی" : "Test password"}
+              </label>
+              <input
+                id="test-password"
+                autoComplete="current-password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                dir="ltr"
+              />
+            </div>
+          </>
+        ) : (
+          <div className="field">
+            <label htmlFor="login-phone">
+              {fa ? "شماره همراه" : "Mobile number"}
+            </label>
+            <input
+              id="login-phone"
+              dir="ltr"
+              type="tel"
+              autoComplete="tel"
+              pattern="09[0-9]{9}"
+              placeholder="09xxxxxxxxx"
+              required
+              value={phone}
+              onChange={(e) => setPhone(normalizeDigits(e.target.value))}
+              disabled={sent}
+            />
+          </div>
+        )}
+        {!testLogin && sent && (
           <div className="field">
             <label htmlFor="otp-code">
               {fa ? "کد تأیید شش‌رقمی" : "Six-digit verification code"}
@@ -90,7 +169,7 @@ export function LoginForm({ locale }: { locale: Locale }) {
               required
               maxLength={6}
               value={code}
-              onChange={(e) => setCode(e.target.value)}
+              onChange={(e) => setCode(normalizeDigits(e.target.value))}
             />
           </div>
         )}
@@ -104,7 +183,7 @@ export function LoginForm({ locale }: { locale: Locale }) {
             ? fa
               ? "در حال بررسی…"
               : "Please wait…"
-            : sent
+            : sent || testLogin
               ? fa
                 ? "تأیید و ورود"
                 : "Verify & sign in"

@@ -2,16 +2,26 @@ import Link from "next/link";
 import { copy, type Locale } from "@/lib/content";
 import { Brand } from "./header";
 import { Icon } from "./icon";
+import { normalizeDigits } from "@/lib/admin-labels";
 export function Footer({
   locale,
   content,
   phone,
+  social,
 }: {
   locale: Locale;
   content?: (typeof copy)[Locale];
   phone?: string;
+  social?: Record<string, unknown> | null;
 }) {
   const t = content || copy[locale];
+  const links = [
+    ["whatsapp", "WhatsApp", "message"],
+    ["telegram", "Telegram", "send"],
+    ["instagram", "Instagram", "heart"],
+    ["bale", "Bale", "message"],
+  ] as const;
+  const publicPhone = typeof social?.phone === "string" ? social.phone : phone;
   return (
     <footer className="footer">
       <div className="footer-main">
@@ -19,15 +29,20 @@ export function Footer({
           <Brand locale={locale} content={t} />
           <p>{t.footerDesc}</p>
           <div className="socials">
-            {(["message", "send", "phone"] as const).map((icon) => (
-              <Link
-                key={icon}
-                href={`/${locale}/contact`}
-                aria-label={t.contact}
-              >
-                <Icon name={icon} size={18} />
-              </Link>
-            ))}
+            {links.map(([key, label, icon]) => {
+              const url = social?.[key];
+              return typeof url === "string" && url.startsWith("https://") ? (
+                <a
+                  key={key}
+                  href={url}
+                  aria-label={label}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Icon name={icon} size={18} />
+                </a>
+              ) : null;
+            })}
           </div>
         </div>
         <div>
@@ -39,7 +54,14 @@ export function Footer({
         </div>
         <div>
           <h3>{t.connection}</h3>
-          <p>{phone || t.infoPending}</p>
+          {publicPhone && (
+            <a
+              href={`tel:${normalizeDigits(publicPhone).replace(/[^+0-9]/g, "")}`}
+              dir="ltr"
+            >
+              {publicPhone}
+            </a>
+          )}
           <Link href={`/${locale}/contact`}>
             {t.contact}
             <Icon name="arrow" size={15} />

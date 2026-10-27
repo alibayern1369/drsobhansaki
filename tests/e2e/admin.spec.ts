@@ -60,6 +60,7 @@ test.describe("authenticated administration", () => {
       "banks",
       "calendar",
       "platforms",
+      "social",
       "sms",
       "articles",
       "content",
@@ -133,7 +134,16 @@ test.describe("authenticated administration", () => {
             currentUserId: "owner",
             appointments: [],
             consultations: [],
-            platforms: [],
+            platforms: [
+              {
+                id: "messenger-fixture",
+                key: "telegram",
+                enabled: false,
+                contactNumber: null,
+                username: null,
+                link: null,
+              },
+            ],
             settings: [],
             content: [],
             articles: [],
@@ -195,5 +205,22 @@ test.describe("authenticated administration", () => {
     await page.getByRole("button", { name: "ذخیره حساب", exact: true }).click();
     await expect.poll(() => submitted.length).toBe(3);
     expect(submitted[2].body.cardNumber).toBe("6037991234567890");
+    await page.locator('.dashboard-nav > a[href="#social"]').click();
+    await page
+      .getByLabel("لینک تلگرام", { exact: true })
+      .fill("https://t.me/public_footer");
+    await page.locator(".admin-settings-form > button").click();
+    await expect.poll(() => submitted.length).toBe(4);
+    expect(submitted[3].body.key).toBe("social");
+    expect((submitted[3].body.value as Record<string, string>).telegram).toBe(
+      "https://t.me/public_footer",
+    );
+    await page.locator('.dashboard-nav > a[href="#platforms"]').click();
+    await page.locator("#messenger-fixture-username").fill("doctor_chat");
+    await page.locator('input[name="enabled"]').check();
+    await page.getByRole("button", { name: "ذخیره", exact: true }).click();
+    await expect.poll(() => submitted.length).toBe(5);
+    expect(submitted[4].url).toBe("/api/admin/platforms/messenger-fixture");
+    expect(submitted[4].body.username).toBe("doctor_chat");
   });
 });

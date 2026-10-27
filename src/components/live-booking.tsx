@@ -1,139 +1,144 @@
 "use client";
-import { formatJalali } from "@/lib/jalali";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type Locale } from "@/lib/content";
+import Link from "next/link";
+import type { Locale } from "@/lib/content";
+import { bookingDraftKey, type BookingConfig } from "@/lib/booking-flow";
 import { formatMoney } from "@/lib/domain";
-type Config = {
-  ready: boolean;
-  booking?: { patientScheduling?: boolean; doctorScheduling?: boolean };
-  types: {
-    id: string;
-    key: string;
-    priceRial: number;
-    durationMinutes: number;
-  }[];
-  platforms: { id: string; key: string }[];
-  slots: { id: string; consultationTypeId: string; startsAt: string }[];
-};
+import { formatJalali } from "@/lib/jalali";
+import { adminLabel } from "@/lib/admin-labels";
 export function LiveBooking({
   locale,
   type,
-  platform,
+  config,
+  draft,
 }: {
   locale: Locale;
   type: string;
-  platform: string;
+  config: BookingConfig;
+  draft: {
+    platform: string;
+    mode: string;
+    slotId: string;
+    idempotencyKey: string;
+  };
 }) {
-  const fa = locale === "fa";
-  const router = useRouter();
-  const [config, setConfig] = useState<Config | null>(null);
-  const [authenticated, setAuthenticated] = useState(false);
-  const [mode, setMode] = useState("");
-  const [slotId, setSlotId] = useState("");
+  const fa = locale === "fa",
+    router = useRouter();
+  const [mode, setMode] = useState(draft.mode);
+  const [slotId, setSlotId] = useState(draft.slotId);
+  const [platform, setPlatform] = useState(draft.platform);
   const [consent, setConsent] = useState(false);
-  const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
-  useEffect(() => {
-    void Promise.all([
-      fetch("/api/config").then((r) => r.json()),
-      fetch("/api/session").then((r) => r.json()),
-    ])
-      .then(([c, s]) => {
-        setConfig(c);
-        setAuthenticated(!!s.user);
-      })
-      .catch(() =>
-        setMessage(
-          fa ? "دریافت تنظیمات انجام نشد." : "Unable to load configuration.",
-        ),
-      );
-  }, [fa]);
-  if (!config?.ready)
-    return (
-      <div className="notice warn" style={{ margin: "23px 0" }}>
-        {fa
-          ? "رزرو هنوز ثبت نشده است. پذیرش نوبت پس از تأیید تعرفه، برنامهٔ پزشک و فعال‌سازی سامانه آغاز می‌شود. در حال حاضر پرداختی انجام ندهید."
-          : "Your appointment has not been submitted. Bookings open after pricing, availability and system setup are confirmed. Please do not transfer payment yet."}
-      </div>
-    );
-  if (!authenticated)
-    return (
-      <div style={{ margin: "23px 0" }}>
-        <p className="notice">
-          {fa
-            ? "برای ثبت واقعی درخواست ابتدا وارد شوید؛ سپس دوباره اطلاعات رزرو را انتخاب کنید."
-            : "Sign in first, then select your consultation again to complete a real booking."}
-        </p>
-        <Link
-          href={`/${locale}/login`}
-          className="button"
-          style={{ marginTop: 15 }}
-        >
-          {fa ? "ورود برای ادامه" : "Sign in to continue"}
-        </Link>
-      </div>
-    );
+  const [error, setError] = useState("");
   const consultation = config.types.find((t) => t.key === type);
-  const messenger =
-    type === "text"
-      ? config.platforms.find((p) => p.key === platform)
-      : undefined;
-  if (!consultation || (type === "text" && !messenger))
+  const messenger = config.platforms.find((p) => p.key === platform);
+  useEffect(() => {
+    sessionStorage.setItem(
+      bookingDraftKey(locale),
+      JSON.stringify({
+        type,
+        platform,
+        mode,
+        slotId,
+        idempotencyKey: draft.idempotencyKey,
+        savedAt: Date.now(),
+      }),
+    );
+  }, [type, platform, mode, slotId, draft.idempotencyKey, locale]);
+  if (
+    !config.ready ||
+    !consultation ||
+    (!config.testMode && consultation.enabled === false)
+  )
     return (
-      <p className="notice warn" style={{ margin: "23px 0" }}>
+      <p className="notice warn">
         {fa
-          ? "روش مشاوره یا پیام‌رسان انتخابی اکنون فعال نیست. لطفاً انتخاب خود را ویرایش کنید."
-          : "Your selected consultation or messaging platform is not enabled. Please edit your selection."}
+          ? "این روش مشاوره فعلاً برای ثبت نوبت فعال نیست. تعرفه نمایش‌داده‌شده به‌تنهایی به معنی پذیرش درخواست نیست."
+          : "This consultation is not currently open for booking."}
       </p>
     );
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const r = await fetch("/api/appointments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Accept-Language": locale,
-        },
-        body: JSON.stringify({
-          consultationTypeId: consultation!.id,
-          platformId: messenger?.id,
-          schedulingMode: mode,
-          slotId: mode === "patient" ? slotId : undefined,
-          consent,
-          idempotencyKey,
-        }),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.message);
-      router.push(`/${locale}/dashboard`);
-    } catch (e) {
-      setMessage((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   return (
-    <form onSubmit={submit} style={{ margin: "23px 0" }}>
+    <form
+      className="live-booking-form"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        setBusy(true);
+        setError("");
+        try {
+          const r = await fetch("/api/appointments", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept-Language": locale,
+            },
+            body: JSON.stringify({
+              consultationTypeId: consultation.id,
+              expectedPriceRial: consultation.priceRial,
+              platformId: type === "text" ? messenger?.id : undefined,
+              schedulingMode: mode,
+              slotId: mode === "patient" ? slotId : undefined,
+              consent,
+              idempotencyKey: draft.idempotencyKey,
+            }),
+          });
+          const d = await r.json();
+          if (r.status === 401) {
+            router.push(
+              `/${locale}/login?next=${encodeURIComponent(`/${locale}/booking?resume=1`)}`,
+            );
+            return;
+          }
+          if (!r.ok) throw new Error(d.message || "Request failed");
+          sessionStorage.removeItem(bookingDraftKey(locale));
+          router.push(
+            `/${locale}/dashboard?appointment=${encodeURIComponent(d.id)}`,
+          );
+          router.refresh();
+        } catch (error) {
+          setError((error as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
       <div className="summary-line">
-        <span>
-          {fa ? "تعرفه قطعی این درخواست" : "Agreed price for this request"}
-        </span>
+        <span>{fa ? "تعرفه درخواست" : "Consultation price"}</span>
         <strong>{formatMoney(consultation.priceRial, locale)}</strong>
       </div>
-      <div className="summary-line">
-        <span>{fa ? "مدت مشاوره" : "Duration"}</span>
-        <strong>
-          {consultation.durationMinutes} {fa ? "دقیقه" : "minutes"}
-        </strong>
-      </div>
-      <div className="field" style={{ marginTop: 20 }}>
+      {type === "text" && (
+        <div className="field">
+          <label htmlFor="booking-platform">
+            {fa ? "پیام‌رسان مشاوره" : "Consultation messenger"}
+          </label>
+          <select
+            id="booking-platform"
+            required
+            value={platform}
+            onChange={(e) => setPlatform(e.target.value)}
+          >
+            <option value="">
+              {fa ? "انتخاب پیام‌رسان" : "Choose messenger"}
+            </option>
+            {config.platforms.map((p) => (
+              <option key={p.id} value={p.key}>
+                {adminLabel(p.key, fa)}
+              </option>
+            ))}
+          </select>
+          {!config.platforms.length && (
+            <p className="notice warn">
+              {fa
+                ? "راه ارتباطی مشاوره متنی هنوز توسط مدیر فعال نشده است. فعلاً مشاوره تلفنی را انتخاب کنید."
+                : "No consultation messenger is enabled yet."}
+            </p>
+          )}
+        </div>
+      )}
+      <div className="field">
         <label htmlFor="confirmed-scheduling">
-          {fa ? "روش قطعی تعیین زمان" : "Scheduling method"}
+          {fa ? "روش تعیین زمان" : "Scheduling"}
         </label>
         <select
           id="confirmed-scheduling"
@@ -141,12 +146,12 @@ export function LiveBooking({
           onChange={(e) => setMode(e.target.value)}
           required
         >
-          <option value="">{fa ? "انتخاب کنید" : "Choose a method"}</option>
+          <option value="">{fa ? "انتخاب کنید" : "Select"}</option>
           {config.booking?.doctorScheduling && (
             <option value="doctor">
               {fa
-                ? "تعیین توسط پزشک پس از تأیید واریز"
-                : "Doctor assigns after payment verification"}
+                ? "هماهنگی زمان پس از تأیید پرداخت"
+                : "Coordinate after payment approval"}
             </option>
           )}
           {config.booking?.patientScheduling && (
@@ -159,7 +164,7 @@ export function LiveBooking({
       {mode === "patient" && (
         <div className="field">
           <label htmlFor="live-slot">
-            {fa ? "زمان آزاد (تهران)" : "Available time (Tehran)"}
+            {fa ? "زمان مشاوره (تهران)" : "Consultation time (Tehran)"}
           </label>
           <select
             id="live-slot"
@@ -167,15 +172,24 @@ export function LiveBooking({
             onChange={(e) => setSlotId(e.target.value)}
             required
           >
-            <option value="">{fa ? "انتخاب زمان" : "Select time"}</option>
+            <option value="">{fa ? "انتخاب زمان" : "Choose time"}</option>
             {config.slots
               .filter((s) => s.consultationTypeId === consultation.id)
               .map((s) => (
-                <option key={s.id} value={s.id}>
+                <option value={s.id} key={s.id}>
                   {formatJalali(s.startsAt, true)}
                 </option>
               ))}
           </select>
+          {!config.slots.some(
+            (s) => s.consultationTypeId === consultation.id,
+          ) && (
+            <p className="notice">
+              {fa
+                ? "زمان آزاد ثبت نشده؛ گزینه هماهنگی پس از پرداخت را انتخاب کنید."
+                : "No available time; choose coordination after payment."}
+            </p>
+          )}
         </div>
       )}
       <label className="checkbox">
@@ -185,20 +199,41 @@ export function LiveBooking({
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
         />
-        {fa
-          ? "تعرفه و شرایط را می‌پذیرم و با ثبت درخواست برای حساب احرازشدهٔ خود و استفاده از پیام‌رسان انتخابی موافقم."
-          : "I accept this price and terms, and consent to booking for my authenticated account and using the selected messaging platform."}
+        <span>
+          {fa
+            ? "تعرفه و شرایط مشاوره و استفاده از پیام‌رسان انتخابی را می‌پذیرم."
+            : "I accept the price, terms and selected external messenger."}{" "}
+          <Link href={`/${locale}/terms`} target="_blank">
+            {fa ? "شرایط استفاده" : "Terms"}
+          </Link>{" "}
+          ·{" "}
+          <Link href={`/${locale}/privacy`} target="_blank">
+            {fa ? "حریم خصوصی" : "Privacy"}
+          </Link>
+        </span>
       </label>
-      <button className="button" disabled={busy}>
+      <p className="notice">
         {fa
-          ? "ثبت درخواست و ادامه پرداخت"
-          : "Create request & continue to payment"}
-      </button>
-      {message && (
-        <p className="form-error" role="alert">
-          {message}
+          ? "پس از ثبت، اطلاعات پرداخت و بارگذاری رسید را در پنل بیمار می‌بینید. پس از تأیید واریز، دکمه ورود به چت و ارسال مدارک فعال می‌شود."
+          : "After submitting, open your dashboard to pay and upload a receipt. Doctor chat becomes available after payment approval."}
+      </p>
+      {error && (
+        <p role="alert" className="form-error">
+          {error}
         </p>
       )}
+      <button
+        className="button"
+        disabled={busy || (type === "text" && !messenger)}
+      >
+        {busy
+          ? fa
+            ? "در حال ثبت…"
+            : "Submitting…"
+          : fa
+            ? "ثبت درخواست و ادامه پرداخت"
+            : "Create request & continue to payment"}
+      </button>
     </form>
   );
 }

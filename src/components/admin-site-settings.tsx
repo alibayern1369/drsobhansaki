@@ -379,6 +379,31 @@ export function AdminSiteSettings({
           </div>
         </>
       )}
+      {tab === "social" && (
+        <>
+          <h2>
+            {fa ? "شبکه‌های اجتماعی عمومی فوتر" : "Public footer social links"}
+          </h2>
+          <p className="notice">
+            {fa
+              ? "این لینک‌ها عمومی‌اند و برای معرفی شبکه‌های اجتماعی سایت نمایش داده می‌شوند. تنظیمات چت مشاوره در منوی راه‌های ارتباطی مشاوره جداست. فیلد خالی در فوتر نمایش داده نمی‌شود."
+              : "These are public social links, independent of private consultation channels. Empty fields are hidden."}
+          </p>
+          {field(
+            "phone",
+            fa ? "شماره تماس عمومی فوتر" : "Public footer phone",
+            "tel",
+          )}
+          {[
+            ["whatsapp", "واتساپ"],
+            ["telegram", "تلگرام"],
+            ["instagram", "اینستاگرام"],
+            ["bale", "بله"],
+          ].map(([key, label]) =>
+            field(key, fa ? `لینک ${label}` : `${key} URL`, "url"),
+          )}
+        </>
+      )}
       {tab === "seo" && (
         <>
           {field(

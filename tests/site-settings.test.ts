@@ -37,3 +37,19 @@ test("website settings reject script URLs, invalid colors and enabled booking wi
 test("Persian and Arabic card digits normalize without losing leading zeroes", () => {
   assert.equal(normalizeDigits("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩"), "01234567890123456789");
 });
+test("footer social settings are a separate validated group", () => {
+  assert.throws(() =>
+    validateSiteSettings("social", { telegram: "javascript:alert(1)" }),
+  );
+  assert.throws(() =>
+    validateSiteSettings("social", { instagram: "http://example.com" }),
+  );
+  const result = validateSiteSettings("social", {
+    telegram: "https://t.me/public_profile",
+    phone: "09123456789",
+  });
+  assert.deepEqual(result, {
+    telegram: "https://t.me/public_profile",
+    phone: "09123456789",
+  });
+});

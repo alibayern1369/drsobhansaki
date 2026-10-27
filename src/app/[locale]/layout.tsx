@@ -114,6 +114,7 @@ export default async function LocaleLayout({
           <Footer
             locale={locale}
             content={content}
+            social={await publicSetting("social")}
             phone={
               typeof contact?.phone === "string" ? contact.phone : undefined
             }
