@@ -12,6 +12,7 @@ import {
   requestKey,
 } from "./security";
 import { sendSms } from "./sms";
+import { temporaryLogin } from "@/lib/test-login";
 export async function requestOtp(phone: string) {
   phoneSchema.parse(phone);
   await rateLimit(`otp:ip:${await requestKey()}`, 15, 900);
@@ -20,9 +21,19 @@ export async function requestOtp(phone: string) {
   const dev =
     process.env.NODE_ENV !== "production" &&
     process.env.SMS_PROVIDER === "development";
-  const code = dev
-    ? process.env.DEV_OTP_CODE
-    : String(randomInt(100000, 1000000));
+  const temporary = temporaryLogin(phone, process.env);
+  // Never grant a production test-code login to a privileged or disabled user.
+  if (temporary) {
+    const [existing] = await getDb()
+      .select({ role: users.role, disabled: users.disabled })
+      .from(users)
+      .where(eq(users.phone, phone));
+    if (existing && (existing.role !== "patient" || existing.disabled))
+      throw new AppError(403, "FORBIDDEN");
+  }
+  const code =
+    temporary?.code ||
+    (dev ? process.env.DEV_OTP_CODE : String(randomInt(100000, 1000000)));
   if (!code || !/^\d{6}$/.test(code))
     throw new AppError(503, "AUTH_NOT_CONFIGURED");
   const db = getDb();
@@ -38,9 +49,12 @@ export async function requestOtp(phone: string) {
     await tx.insert(otpChallenges).values({
       phone,
       codeHash: digest,
-      expiresAt: new Date(Date.now() + 300000),
+      expiresAt: new Date(
+        Math.min(Date.now() + 300000, temporary?.expiresAt || Infinity),
+      ),
     });
   });
+  if (temporary) return;
   try {
     await sendSms(
       phone,
@@ -100,7 +114,13 @@ export async function verifyOtp(phone: string, code: string) {
         set: { updatedAt: new Date() },
       })
       .returning();
-    if (user.disabled) return null;
+    if (
+      user.disabled ||
+      (phone === process.env.TEST_LOGIN_PHONE &&
+        code === process.env.TEST_LOGIN_CODE &&
+        user.role !== "patient")
+    )
+      return null;
     return user;
   });
   if (!result) throw new AppError(400, "INVALID_OTP");

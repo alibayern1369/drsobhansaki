@@ -6,6 +6,7 @@ import { formatJalali } from "@/lib/jalali";
 import { statusLabel, appointmentTone } from "@/lib/patient-portal";
 import { JalaliDatePicker } from "./jalali-date-picker";
 import { AdminAppointmentActions } from "./admin-appointment-actions";
+import { formatPhone } from "@/lib/phone-display";
 type Item = {
   id: string;
   trackingCode: string;
@@ -196,7 +197,8 @@ export function AdminAppointmentList({
               </span>
             </div>
             <p dir="ltr">
-              {a.patientPhone} · {a.trackingCode}
+              <bdi dir="ltr">{formatPhone(a.patientPhone)}</bdi> ·{" "}
+              <bdi dir="ltr">{a.trackingCode}</bdi>
             </p>
             <p>
               {a.typeSnapshot.key === "phone"

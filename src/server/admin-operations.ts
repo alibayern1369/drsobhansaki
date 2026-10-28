@@ -359,6 +359,7 @@ export async function adminOperations(
         content: z.object({
           fa: z.string().min(1).max(500),
           en: z.string().min(1).max(500),
+          patternId: z.string().regex(/^\d*$/).max(30).default(""),
         }),
         enabled: z.boolean(),
       })

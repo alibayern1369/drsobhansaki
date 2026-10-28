@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "./icon";
 import type { Locale } from "@/lib/content";
+import { formatPhone } from "@/lib/phone-display";
 export type PatientUser = {
   id: string;
   name: string | null;
@@ -126,7 +127,7 @@ export function AccountMenu({ locale }: { locale: Locale }) {
           {user.name?.trim().slice(0, 1) || <Icon name="user" size={18} />}
         </span>
         <span>
-          {user.name || `${user.phone.slice(0, 4)}•••${user.phone.slice(-4)}`}
+          {user.name?.trim() || (fa ? "حساب بیمار" : "Patient account")}
         </span>
         <span aria-hidden="true">⌄</span>
       </button>
@@ -134,9 +135,7 @@ export function AccountMenu({ locale }: { locale: Locale }) {
         <div className="account-dropdown" id="account-dropdown">
           <p>
             {user.name || (fa ? "حساب شما" : "Your account")}
-            <small dir="ltr">
-              {user.phone.slice(0, 4)}•••{user.phone.slice(-4)}
-            </small>
+            <small dir="ltr">{formatPhone(user.phone)}</small>
           </p>
           {links.map((label, i) => (
             <Link

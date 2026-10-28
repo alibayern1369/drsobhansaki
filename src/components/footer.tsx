@@ -3,6 +3,7 @@ import { copy, type Locale } from "@/lib/content";
 import { Brand } from "./header";
 import { Icon } from "./icon";
 import { normalizeDigits } from "@/lib/admin-labels";
+import { formatPhone } from "@/lib/phone-display";
 export function Footer({
   locale,
   content,
@@ -59,7 +60,7 @@ export function Footer({
               href={`tel:${normalizeDigits(publicPhone).replace(/[^+0-9]/g, "")}`}
               dir="ltr"
             >
-              {publicPhone}
+              <bdi dir="ltr">{formatPhone(publicPhone)}</bdi>
             </a>
           )}
           <Link href={`/${locale}/contact`}>

@@ -5,6 +5,7 @@ import { type Locale } from "@/lib/content";
 import { patientReturnTo } from "@/lib/booking-flow";
 import { normalizeDigits } from "@/lib/admin-labels";
 import { Icon } from "./icon";
+import { formatPhone } from "@/lib/phone-display";
 export function LoginForm({
   locale,
   returnTo,
@@ -17,6 +18,8 @@ export function LoginForm({
     destination = patientReturnTo(returnTo, locale);
   const [phone, setPhone] = useState(""),
     [code, setCode] = useState("");
+  const [profileRequired, setProfileRequired] = useState(false);
+  const [fullName, setFullName] = useState("");
   const [sent, setSent] = useState(false),
     [busy, setBusy] = useState(false),
     [success, setSuccess] = useState(false);
@@ -60,6 +63,10 @@ export function LoginForm({
             (fa ? "امکان ورود فراهم نیست." : "Unable to sign in."),
         );
       if (verify) {
+        if (data.profileRequired) {
+          setProfileRequired(true);
+          return;
+        }
         setSuccess(true);
         window.dispatchEvent(new Event("medical-session-changed"));
         router.push(destination);
@@ -82,6 +89,73 @@ export function LoginForm({
       setBusy(false);
     }
   }
+  if (profileRequired)
+    return (
+      <div className="login-panel patient-login">
+        <h1>{fa ? "آشنایی با شما" : "Your profile"}</h1>
+        <p>
+          {fa
+            ? "برای نمایش نام شما در حساب و پیامک‌های نوبت، نام و نام خانوادگی‌تان را وارد کنید."
+            : "Enter your full name for your account and appointment messages."}
+        </p>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setBusy(true);
+            setError("");
+            try {
+              const response = await fetch("/api/patient/profile", {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Accept-Language": locale,
+                },
+                body: JSON.stringify({ name: fullName.trim(), locale }),
+              });
+              const result = await response.json();
+              if (!response.ok)
+                throw new Error(
+                  result.message ||
+                    (fa ? "ذخیره نام انجام نشد." : "Unable to save name."),
+                );
+              window.dispatchEvent(new Event("medical-session-changed"));
+              router.push(destination);
+              router.refresh();
+            } catch (e) {
+              setError((e as Error).message);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <div className="field">
+            <label htmlFor="login-full-name">
+              {fa ? "نام و نام خانوادگی" : "Full name"}
+            </label>
+            <input
+              id="login-full-name"
+              autoComplete="name"
+              required
+              minLength={3}
+              maxLength={100}
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
+          </div>
+          {error && (
+            <p role="alert" className="form-error">
+              {error}
+            </p>
+          )}
+          <button
+            className="button"
+            disabled={busy || fullName.trim().length < 3}
+          >
+            {fa ? "ذخیره و ادامه" : "Save and continue"}
+          </button>
+        </form>
+      </div>
+    );
   return (
     <div className="login-panel patient-login">
       <div className="login-identity">
@@ -111,13 +185,23 @@ export function LoginForm({
               : "Welcome back"}
       </h1>
       <p>
-        {sent
-          ? fa
-            ? `کد شش‌رقمی به شماره ${phone} ارسال شد.`
-            : `A six-digit code was sent to ${phone}.`
-          : fa
-            ? "با شماره همراه خود وارد شوید؛ اگر حسابی ندارید، همان لحظه ساخته می‌شود."
-            : "Sign in with your mobile number. New accounts are created automatically."}
+        {sent ? (
+          fa ? (
+            <>
+              کد ورود مربوط به شمارهٔ <bdi dir="ltr">{formatPhone(phone)}</bdi>{" "}
+              را وارد کنید.
+            </>
+          ) : (
+            <>
+              Enter the sign-in code for{" "}
+              <bdi dir="ltr">{formatPhone(phone)}</bdi>.
+            </>
+          )
+        ) : fa ? (
+          "با شماره همراه خود وارد شوید؛ اگر حسابی ندارید، همان لحظه ساخته می‌شود."
+        ) : (
+          "Sign in with your mobile number. New accounts are created automatically."
+        )}
       </p>
       {destination.includes("/booking") && (
         <p className="notice">

@@ -1,4 +1,5 @@
 import { legalContent } from "@/lib/legal-content";
+import { formatPhone } from "@/lib/phone-display";
 import { ArticleContent } from "@/components/article-content";
 import {
   publicHomeContent,
@@ -171,7 +172,13 @@ export default async function Page({
                             localText(contact?.registration) ||
                               doctorProfile.registration[locale],
                             localText(contact?.interests),
-                            String(contact?.phone || ""),
+                            contact?.phone ? (
+                              <bdi dir="ltr">
+                                {formatPhone(String(contact.phone))}
+                              </bdi>
+                            ) : (
+                              ""
+                            ),
                           ][i] ||
                             (i === 2
                               ? fa
@@ -236,7 +243,13 @@ export default async function Page({
                           <h3>{v}</h3>
                           <p>
                             {[
-                              String(contact?.phone || ""),
+                              contact?.phone ? (
+                                <bdi dir="ltr">
+                                  {formatPhone(String(contact.phone))}
+                                </bdi>
+                              ) : (
+                                ""
+                              ),
                               localText(contact?.address),
                               String(contact?.email || ""),
                               localText(contact?.hours),

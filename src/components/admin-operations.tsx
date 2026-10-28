@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { type Locale } from "@/lib/content";
 import { Icon } from "./icon";
 import { adminLabel, normalizeDigits } from "@/lib/admin-labels";
+import { SmsWorkflowSettings } from "./sms-workflow-settings";
+import { isSmsEvent } from "@/lib/sms-workflow";
+import { formatPhone } from "@/lib/phone-display";
 import { AdminAccountCreator } from "./admin-account-creator";
 type Row = Record<string, string | number | boolean | null>;
 type Collection = {
@@ -15,7 +18,7 @@ type Collection = {
   types?: Row[];
   templates?: Array<{
     key: string;
-    content: { fa: string; en: string };
+    content: { fa: string; en: string; patternId?: string };
     enabled: boolean;
   }>;
   deliveries?: Row[];
@@ -36,7 +39,6 @@ export function AdminOperations({
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
-  const [smsKey, setSmsKey] = useState("booking_submitted");
   const endpoint = tab === "articles" ? "article-list" : tab;
   useEffect(() => {
     let active = true;
@@ -127,7 +129,13 @@ export function AdminOperations({
               {rows.map((row) => (
                 <div className="content-panel" key={String(row.id)}>
                   <h3>{adminLabel(row.kind, fa)}</h3>
-                  <p>{row.name || row.phone}</p>
+                  <p>
+                    {row.name || (
+                      <bdi dir="ltr">
+                        {formatPhone(String(row.phone || ""))}
+                      </bdi>
+                    )}
+                  </p>
                   <p dir="ltr">{row.trackingCode}</p>
                   <time>{formatJalali(String(row.createdAt), true)}</time>
                   <div className="admin-actions">
@@ -199,7 +207,7 @@ export function AdminOperations({
                         </span>
                         {r.name || (fa ? "نام ثبت نشده" : "Name not provided")}
                       </strong>
-                      <span dir="ltr">{r.phone}</span>
+                      <bdi dir="ltr">{formatPhone(String(r.phone || ""))}</bdi>
                       <span>{formatJalali(String(r.createdAt))}</span>
                       <span className="pill">
                         {r.disabled
@@ -277,7 +285,13 @@ export function AdminOperations({
                         });
                       }}
                     >
-                      <strong>{r.name || r.phone}</strong>
+                      <strong>
+                        {r.name || (
+                          <bdi dir="ltr">
+                            {formatPhone(String(r.phone || ""))}
+                          </bdi>
+                        )}
+                      </strong>
                       <div className="field">
                         <label htmlFor={`role-${r.id}`}>
                           {fa ? "نقش" : "Role"}
@@ -553,137 +567,53 @@ export function AdminOperations({
           )}
           {tab === "sms" && collection && (
             <>
-              <form
-                className="content-panel"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  void save("sms", {
-                    key: f.get("key"),
-                    content: { fa: f.get("fa"), en: f.get("en") },
-                    enabled: f.get("enabled") === "on",
-                  });
-                }}
-              >
-                <h2>{fa ? "قالب پیامک" : "SMS template"}</h2>
-                <div className="notice" style={{ marginBottom: 20 }}>
-                  {fa
-                    ? "اطلاعات پزشکی حساس را در پیامک درج نکنید. ارسال با صف اعلان و سرویس تنظیم‌شده انجام می‌شود."
-                    : "Do not include sensitive medical information in SMS. Delivery uses the outbox and configured provider."}
-                </div>
-                <div className="field">
-                  <label htmlFor="sms-key">{fa ? "رویداد" : "Event"}</label>
-                  <select
-                    id="sms-key"
-                    name="key"
-                    value={smsKey}
-                    onChange={(e) => setSmsKey(e.target.value)}
-                  >
-                    {[
-                      "booking_submitted",
-                      "receipt_submitted",
-                      "payment_approved",
-                      "payment_rejected",
-                      "payment_additional_information_required",
-                      "appointment_confirmed",
-                      "appointment_cancelled",
-                      "appointment_reminder",
-                    ].map((v) => (
-                      <option key={v} value={v}>
-                        {adminLabel(v, fa)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {smsKey === "appointment_confirmed" && (
-                  <p className="notice">
-                    {fa
-                      ? "متن ذخیره‌شده استفاده می‌شود. برای جای‌گذاری اطلاعات از {doctor}، {type}، {date}، {tracking} و {panel} استفاده کنید. اطلاعات ضروری که در متن نباشد، خودکار به انتهای پیام اضافه می‌شود."
-                      : "Use {doctor}, {type}, {date}, {tracking} and {panel}. Required appointment details missing from the template are appended automatically."}
-                  </p>
-                )}
-                {(["fa", "en"] as const).map((l) => (
-                  <div className="field" key={l}>
-                    <label htmlFor={`sms-${l}`}>
-                      {l === "fa" ? "متن فارسی" : "English text"}
-                    </label>
-                    <textarea
-                      key={`${smsKey}-${l}-${collection.templates?.find((t) => t.key === smsKey)?.content[l] || ""}`}
-                      defaultValue={
-                        collection.templates?.find((t) => t.key === smsKey)
-                          ?.content[l] || ""
-                      }
-                      id={`sms-${l}`}
-                      name={l}
-                      dir={l === "fa" ? "rtl" : "ltr"}
-                      required
-                      maxLength={500}
-                    />
-                  </div>
-                ))}
-                <label className="checkbox">
-                  <input
-                    key={`${smsKey}-${collection.templates?.find((t) => t.key === smsKey)?.enabled}`}
-                    type="checkbox"
-                    name="enabled"
-                    defaultChecked={
-                      collection.templates?.find((t) => t.key === smsKey)
-                        ?.enabled ?? true
-                    }
-                  />
-                  {fa ? "فعال" : "Enabled"}
-                </label>
-                <button className="button button-small" disabled={busy}>
-                  {fa ? "ذخیره قالب" : "Save template"}
-                </button>
-              </form>
+              <SmsWorkflowSettings
+                templates={collection.templates || []}
+                locale={locale}
+                busy={busy}
+                save={save}
+              />
               <h2 style={{ fontSize: 21, margin: "25px 0 15px" }}>
                 {fa ? "گزارش تحویل" : "Delivery log"}
               </h2>
-              {collection.deliveries?.map((n) => (
-                <div key={String(n.id)} className="summary-line">
-                  <span>
-                    {adminLabel(n.event, fa)} · {adminLabel(n.status, fa)} ·{" "}
-                    {n.attempts}
-                    {n.lastError && (
-                      <small style={{ display: "block" }}>
-                        {fa ? "آخرین خطا: " : "Last error: "}
-                        {String(n.lastError) === "SMS_NOT_CONFIGURED"
-                          ? fa
-                            ? "تنظیمات سرویس پیامک کامل نیست"
-                            : "SMS provider is not configured"
-                          : String(n.lastError)}
-                      </small>
+              {collection.deliveries
+                ?.filter((n) => isSmsEvent(String(n.event)))
+                .map((n) => (
+                  <div key={String(n.id)} className="summary-line">
+                    <span>
+                      {adminLabel(n.event, fa)} · {adminLabel(n.status, fa)} ·{" "}
+                      {n.attempts}
+                      {n.lastError && (
+                        <small style={{ display: "block" }}>
+                          {fa ? "آخرین خطا: " : "Last error: "}
+                          {String(n.lastError) === "SMS_NOT_CONFIGURED"
+                            ? fa
+                              ? "تنظیمات سرویس پیامک کامل نیست"
+                              : "SMS provider is not configured"
+                            : adminLabel(n.lastError, fa)}
+                        </small>
+                      )}
+                      {n.status === "pending" && n.nextAttemptAt && (
+                        <small style={{ display: "block" }}>
+                          {fa
+                            ? "امکان تلاش بعدی از: "
+                            : "Next retry eligible: "}
+                          {formatJalali(String(n.nextAttemptAt), true)}
+                        </small>
+                      )}
+                    </span>
+                    {n.status === "failed" && (
+                      <button
+                        className="text-link"
+                        style={{ background: "none" }}
+                        disabled={busy}
+                        onClick={() => save(`sms-retry/${n.id}`, {}, "POST")}
+                      >
+                        {fa ? "تلاش مجدد" : "Retry"}
+                      </button>
                     )}
-                    {n.status === "pending" && n.nextAttemptAt && (
-                      <small style={{ display: "block" }}>
-                        {fa ? "امکان تلاش بعدی از: " : "Next retry eligible: "}
-                        {formatJalali(String(n.nextAttemptAt), true)}
-                      </small>
-                    )}
-                  </span>
-                  {n.status === "failed" && (
-                    <button
-                      className="text-link"
-                      style={{ background: "none" }}
-                      disabled={busy}
-                      onClick={() => save(`sms-retry/${n.id}`, {}, "POST")}
-                    >
-                      {fa ? "تلاش مجدد" : "Retry"}
-                    </button>
-                  )}
-                </div>
-              ))}
-              <h2 style={{ fontSize: 21, margin: "25px 0 15px" }}>
-                {fa ? "قالب‌های ذخیره‌شده" : "Saved templates"}
-              </h2>
-              {collection.templates?.map((t) => (
-                <details className="article-draft" key={t.key}>
-                  <summary>{adminLabel(t.key, fa)}</summary>
-                  <p>{t.content.fa}</p>
-                  <p dir="ltr">{t.content.en}</p>
-                </details>
-              ))}
+                  </div>
+                ))}
             </>
           )}
           {tab === "banks" && (

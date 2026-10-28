@@ -1,18 +1,10 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { cronAuthorized } from "@/lib/cron-auth";
 import { runJobs } from "@/server/jobs";
 export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const expected = process.env.CRON_SECRET;
-  const supplied = request.headers
-    .get("authorization")
-    ?.replace(/^Bearer /, "");
-  if (
-    !expected ||
-    !supplied ||
-    supplied.length !== expected.length ||
-    !timingSafeEqual(Buffer.from(expected), Buffer.from(supplied))
-  )
+  if (!cronAuthorized(request.headers.get("authorization"), expected))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   try {
     return NextResponse.json(await runJobs(), {

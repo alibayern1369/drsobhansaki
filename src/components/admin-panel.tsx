@@ -12,7 +12,6 @@ import { AdminSiteSettings, type ContentRow } from "./admin-site-settings";
 import { ReceiptStorageSettings } from "./receipt-storage-settings";
 import { ConsultationFees } from "./consultation-fees";
 import { adminLabel } from "@/lib/admin-labels";
-import { ConsultationPhoneSettings } from "./consultation-phone-settings";
 type AdminData = {
   role: string;
   currentUserId: string;
@@ -405,14 +404,6 @@ export function AdminPanel({
                   onSaved={load}
                 />
               ))}
-            {tab === "platforms" && (
-              <ConsultationPhoneSettings
-                locale={locale}
-                settings={data.settings}
-                busy={busy}
-                save={save}
-              />
-            )}
             {tab === "platforms" && (
               <p className="notice">
                 {fa

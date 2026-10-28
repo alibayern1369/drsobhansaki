@@ -287,6 +287,11 @@ export function AdminSecuritySettings({
               ? "پس از ذخیره، کد ورود بیماران و مدیر با این تنظیمات ارسال می‌شود. الگوی تأییدشده باید یک متغیر برای کد داشته باشد."
               : "Saved credentials are used immediately for patient and administrator OTP. Use an approved template with one code variable."}
           </p>
+          <p className="notice" dir={fa ? "rtl" : "ltr"}>
+            {fa
+              ? "متن پیشنهادی الگوی ورود: کد ورود شما به سامانه دکتر سبحان ساکی: {0} — این کد را در اختیار دیگران نگذارید. فقط یک متغیر به نام کد ورود دارد؛ شناسهٔ الگوی تأییدشده را پایین وارد کنید."
+              : "Suggested OTP pattern: Your Dr. Sobhan Saki sign-in code is {0}. Do not share it. This pattern has just one code variable."}
+          </p>
           {(
             [
               [
@@ -302,12 +307,6 @@ export function AdminSecuritySettings({
               [
                 "otpBodyId",
                 fa ? "شناسه الگوی خدماتی OTP" : "OTP service template ID",
-              ],
-              [
-                "from",
-                fa
-                  ? "شماره خط ارسال اعلان‌ها (اختیاری)"
-                  : "Notification sender (optional)",
               ],
             ] as const
           ).map(([key, label]) => (

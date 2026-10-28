@@ -17,6 +17,7 @@ import {
   websiteSettings,
   blockedDates,
   auditLogs,
+  users,
 } from "@/db/schema";
 import {
   assertTransition,
@@ -195,6 +196,26 @@ export async function bookAppointment(input: unknown) {
       event: "booking_submitted",
       dedupeKey: `booking:${appointment.id}`,
     });
+    const doctors = await tx
+      .select({ id: users.id })
+      .from(users)
+      .where(
+        and(
+          inArray(users.role, ["doctor", "super_admin"]),
+          eq(users.disabled, false),
+        ),
+      );
+    for (const doctor of doctors) {
+      await tx
+        .insert(notifications)
+        .values({
+          userId: doctor.id,
+          appointmentId: appointment.id,
+          event: "doctor_booking_submitted",
+          dedupeKey: `doctor-booking:${appointment.id}:${doctor.id}`,
+        })
+        .onConflictDoNothing();
+    }
     return appointment;
   });
 }

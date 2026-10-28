@@ -36,11 +36,10 @@ test("receipt review is yellow, corrections red and confirmed appointments green
     "neutral",
   );
 });
-test("private contacts require approved payment and a confirmed consultation lifecycle", () => {
+test("private document channels require approved payment and an active consultation lifecycle", () => {
   for (const status of [
     "awaiting_payment",
     "awaiting_verification",
-    "awaiting_scheduling",
     "cancelled",
     "expired",
     "rejected",
@@ -49,7 +48,12 @@ test("private contacts require approved payment and a confirmed consultation lif
       consultationContactAllowed({ status, paymentStatus: "approved" }),
       false,
     );
-  for (const status of ["confirmed", "in_progress", "completed"])
+  for (const status of [
+    "awaiting_scheduling",
+    "confirmed",
+    "in_progress",
+    "completed",
+  ])
     assert.equal(
       consultationContactAllowed({ status, paymentStatus: "approved" }),
       true,

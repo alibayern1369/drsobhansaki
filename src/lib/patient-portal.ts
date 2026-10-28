@@ -49,6 +49,8 @@ export function consultationContactAllowed(
 ) {
   return (
     a.paymentStatus === "approved" &&
-    ["confirmed", "in_progress", "completed"].includes(a.status)
+    ["awaiting_scheduling", "confirmed", "in_progress", "completed"].includes(
+      a.status,
+    )
   );
 }

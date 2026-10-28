@@ -16,6 +16,8 @@ import { PatientReceipts } from "./patient-receipts";
 import { ConsultationContact } from "./consultation-contact";
 import { Icon } from "./icon";
 import { patientFetch } from "@/lib/patient-fetch";
+import { PatientDialog } from "./patient-dialog";
+import { formatPhone } from "@/lib/phone-display";
 type Summary = {
   user: { name: string | null; phone: string };
   stats: {
@@ -277,7 +279,23 @@ export function PatientDashboard({
               href={href(v)}
               aria-current={view === v ? "page" : undefined}
             >
-              {labels[i]}
+              <Icon
+                name={
+                  (
+                    [
+                      "dashboard",
+                      "calendar",
+                      "file",
+                      "clock",
+                      "bell",
+                      "user",
+                      "shield",
+                    ] as const
+                  )[i]
+                }
+                size={19}
+              />
+              <span>{labels[i]}</span>
               {v === "notifications" && unread > 0 && (
                 <b>{new Intl.NumberFormat(locale).format(unread)}</b>
               )}
@@ -352,6 +370,12 @@ export function PatientDashboard({
                         );
                       }}
                     >
+                      <Icon
+                        name={
+                          (["calendar", "check", "clock", "heart"] as const)[i]
+                        }
+                        size={22}
+                      />
                       <span>
                         {
                           (fa
@@ -387,13 +411,19 @@ export function PatientDashboard({
                       : "You have no upcoming confirmed appointments."}
                   </p>
                 )}
-                <h2>{fa ? "آخرین درخواست" : "Latest request"}</h2>
-                {items[0] ? (
-                  appointmentCard(items[0])
-                ) : (
-                  <p className="notice">
-                    {fa ? "هنوز درخواستی ثبت نکرده‌اید." : "No requests yet."}
-                  </p>
+                {items[0]?.id !== summary?.next?.id && (
+                  <>
+                    <h2>{fa ? "آخرین درخواست" : "Latest request"}</h2>
+                    {items[0] ? (
+                      appointmentCard(items[0])
+                    ) : (
+                      <p className="notice">
+                        {fa
+                          ? "هنوز درخواستی ثبت نکرده‌اید."
+                          : "No requests yet."}
+                      </p>
+                    )}
+                  </>
                 )}
                 {unread > 0 && (
                   <Link className="notice" href={href("notifications")}>
@@ -538,56 +568,82 @@ export function PatientDashboard({
               </>
             )}
             {view === "notifications" && (
-              <div className="content-panel">
+              <div className="content-panel notification-center">
+                <div className="notification-heading">
+                  <Icon name="bell" size={22} />
+                  <h2>{fa ? "پیام‌های نوبت شما" : "Appointment updates"}</h2>
+                  <span>
+                    {fa
+                      ? `${new Intl.NumberFormat(locale).format(unread)} خوانده‌نشده`
+                      : `${unread} unread`}
+                  </span>
+                </div>
                 {notifications.length ? (
                   notifications.map((n) => (
                     <article
                       className={`patient-notification ${n.readAt ? "" : "unread"}`}
                       key={n.id}
                     >
-                      <strong>{notificationLabel(n.event, fa)}</strong>
-                      <small>{formatJalali(n.createdAt, true)}</small>
-                      <div>
-                        {n.appointmentId && (
-                          <button
-                            className="text-link"
-                            onClick={() => setSelected(n.appointmentId!)}
-                          >
-                            {fa ? "مشاهده نوبت مرتبط" : "View appointment"}
-                          </button>
-                        )}
-                        {!n.readAt && (
-                          <button
-                            className="text-link"
-                            disabled={busy}
-                            onClick={async () => {
-                              setBusy(true);
-                              try {
-                                await api("/api/patient/notifications", {
-                                  method: "POST",
-                                  body: JSON.stringify({ id: n.id }),
-                                });
-                                setNotifications((old) =>
-                                  old.map((item) =>
-                                    item.id === n.id
-                                      ? {
-                                          ...item,
-                                          readAt: new Date().toISOString(),
-                                        }
-                                      : item,
-                                  ),
-                                );
-                                setUnread((c) => Math.max(0, c - 1));
-                              } catch (e) {
-                                setError((e as Error).message);
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            {fa ? "خوانده شد" : "Mark read"}
-                          </button>
-                        )}
+                      <span
+                        className={`notification-icon ${n.event.includes("confirmed") || n.event.includes("approved") ? "success" : ""}`}
+                      >
+                        <Icon
+                          name={
+                            n.event.includes("confirmed") ||
+                            n.event.includes("approved")
+                              ? "check"
+                              : n.event.includes("reminder")
+                                ? "clock"
+                                : "bell"
+                          }
+                          size={21}
+                        />
+                      </span>
+                      <div className="notification-body">
+                        <strong>{notificationLabel(n.event, fa)}</strong>
+                        <small>{formatJalali(n.createdAt, true)}</small>
+                        <div>
+                          {n.appointmentId && (
+                            <button
+                              className="text-link"
+                              onClick={() => setSelected(n.appointmentId!)}
+                            >
+                              {fa ? "مشاهده نوبت مرتبط" : "View appointment"}
+                            </button>
+                          )}
+                          {!n.readAt && (
+                            <button
+                              className="text-link"
+                              disabled={busy}
+                              onClick={async () => {
+                                setBusy(true);
+                                try {
+                                  await api("/api/patient/notifications", {
+                                    method: "POST",
+                                    body: JSON.stringify({ id: n.id }),
+                                  });
+                                  setNotifications((old) =>
+                                    old.map((item) =>
+                                      item.id === n.id
+                                        ? {
+                                            ...item,
+                                            readAt: new Date().toISOString(),
+                                          }
+                                        : item,
+                                    ),
+                                  );
+                                  setUnread((c) => Math.max(0, c - 1));
+                                } catch (e) {
+                                  setError((e as Error).message);
+                                } finally {
+                                  setBusy(false);
+                                }
+                              }}
+                            >
+                              {fa ? "خوانده شد" : "Mark read"}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </article>
                   ))
@@ -644,7 +700,7 @@ export function PatientDashboard({
                   </label>
                   <input
                     id="patient-mobile"
-                    value={summary?.user.phone || ""}
+                    value={formatPhone(summary?.user.phone || "")}
                     dir="ltr"
                     readOnly
                   />
@@ -725,7 +781,7 @@ export function PatientDashboard({
                     href={`tel:${support.phone.replace(/[^+\d]/g, "")}`}
                   >
                     {fa ? "تماس با پشتیبانی" : "Contact support"} ·{" "}
-                    {support.phone}
+                    <bdi dir="ltr">{formatPhone(support.phone)}</bdi>
                   </a>
                 )}
                 {support.email && (
@@ -742,49 +798,55 @@ export function PatientDashboard({
           </>
         )}
         {selected && (
-          <section
-            className="patient-detail content-panel"
-            aria-label={fa ? "جزئیات نوبت" : "Appointment details"}
-          >
-            <div className="dashboard-title">
-              <h2>{fa ? "جزئیات نوبت" : "Appointment details"}</h2>
-              <button className="text-link" onClick={() => setSelected("")}>
-                {fa ? "بستن جزئیات" : "Close details"}
-              </button>
-            </div>
-            {detailLoading ? (
-              <p role="status">
-                {fa ? "در حال دریافت جزئیات…" : "Loading details…"}
-              </p>
-            ) : (
-              details && (
-                <AppointmentDetails
-                  details={details}
-                  locale={locale}
-                  onChange={() => setRevision((r) => r + 1)}
-                  onRequest={async (kind) => {
-                    setBusy(true);
-                    try {
-                      await api(`/api/appointments/${selected}/request`, {
-                        method: "POST",
-                        body: JSON.stringify({ kind }),
-                      });
-                      setMessage(
-                        fa
-                          ? "درخواست برای بررسی ثبت شد."
-                          : "Request submitted for review.",
-                      );
-                    } catch (e) {
-                      setError((e as Error).message);
-                    } finally {
-                      setBusy(false);
-                    }
-                  }}
-                  busy={busy}
-                />
-              )
-            )}
-          </section>
+          <PatientDialog fa={fa} onClose={() => setSelected("")}>
+            <section
+              className="patient-detail content-panel"
+              aria-label={fa ? "جزئیات نوبت" : "Appointment details"}
+            >
+              {error && (
+                <p role="alert" className="form-error">
+                  {error}
+                </p>
+              )}
+              {message && (
+                <p role="status" className="notice">
+                  {message}
+                </p>
+              )}
+              {detailLoading ? (
+                <p role="status">
+                  {fa ? "در حال دریافت جزئیات…" : "Loading details…"}
+                </p>
+              ) : (
+                details && (
+                  <AppointmentDetails
+                    details={details}
+                    locale={locale}
+                    onChange={() => setRevision((r) => r + 1)}
+                    onRequest={async (kind) => {
+                      setBusy(true);
+                      try {
+                        await api(`/api/appointments/${selected}/request`, {
+                          method: "POST",
+                          body: JSON.stringify({ kind }),
+                        });
+                        setMessage(
+                          fa
+                            ? "درخواست برای بررسی ثبت شد."
+                            : "Request submitted for review.",
+                        );
+                      } catch (e) {
+                        setError((e as Error).message);
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                    busy={busy}
+                  />
+                )
+              )}
+            </section>
+          </PatientDialog>
         )}
       </section>
     </div>

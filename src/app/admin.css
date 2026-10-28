@@ -1,3 +1,75 @@
+.sms-workflows {
+  margin-block: 24px;
+}
+.sms-workflows > h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block: 20px;
+}
+.sms-workflows > p {
+  margin-bottom: 16px;
+}
+.sms-workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
+  gap: 18px;
+}
+.sms-workflow-card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.sms-workflow-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sms-workflow-title > span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  background: #e8f0ff;
+  color: #3567ab;
+  border-radius: 12px;
+}
+.sms-workflow-title h3 {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.sms-workflow-card > small {
+  color: #667b95;
+}
+.sms-workflow-card .sms-pattern-text {
+  background: #f2f6fc;
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 2;
+  margin: 0;
+}
+.sms-variable-list {
+  margin: 0;
+  padding-inline-start: 22px;
+  font-size: 12px;
+  line-height: 2.2;
+  color: #526c8b;
+}
+.sms-variable-list code {
+  display: inline-block;
+  color: #284f83;
+}
+.sms-workflow-card .field,
+.sms-workflow-card .checkbox {
+  margin: 0;
+}
+.sms-workflow-card > .button {
+  margin-top: auto;
+}
 .admin-security-panel form {
   display: flex;
   flex-direction: column;

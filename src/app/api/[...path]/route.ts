@@ -3,6 +3,7 @@ import { availableSlots, expireBookingHolds } from "@/server/availability";
 import { after } from "next/server";
 import { runJobs } from "@/server/jobs";
 import { messengerLink, patientAppointmentView } from "@/lib/booking-flow";
+import { consultationContactAllowed } from "@/lib/patient-portal";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { and, asc, desc, eq, inArray, getTableColumns, sql } from "drizzle-orm";
@@ -203,8 +204,8 @@ async function dispatch(request: Request, segments: string[], method: string) {
         code: z.string().transform(normalizeDigits),
       })
       .parse(await request.json());
-    await verifyOtp(data.phone, data.code);
-    return response({ ok: true });
+    const user = await verifyOtp(data.phone, data.code);
+    return response({ ok: true, profileRequired: !user.name?.trim() });
   }
   if (method === "POST" && path === "auth/mfa") {
     const data = z
@@ -285,30 +286,9 @@ async function dispatch(request: Request, segments: string[], method: string) {
         and(eq(s.appointments.id, id), eq(s.appointments.patientId, user.id)),
       );
     if (!item) throw new AppError(404, "NOT_FOUND");
-    if (
-      item.paymentStatus !== "approved" ||
-      !["confirmed", "in_progress", "completed"].includes(item.status)
-    )
+    if (!consultationContactAllowed(item))
       throw new AppError(403, "PAYMENT_NOT_APPROVED");
     const platform = (item.platformSnapshot || {}) as { key?: string };
-    if ((item.typeSnapshot as { key?: string }).key === "phone") {
-      const [setting] = await getDb()
-        .select({ value: s.websiteSettings.value })
-        .from(s.websiteSettings)
-        .where(eq(s.websiteSettings.key, "consultationContact"));
-      const info = (setting?.value || {}) as {
-        phone?: string;
-        phoneInstructions?: unknown;
-      };
-      const phone = normalizeDigits(info.phone || "").replace(/[^+\d]/g, "");
-      return response({
-        channels: /^\+?\d{7,15}$/.test(phone)
-          ? [{ key: "phone", url: `tel:${phone}` }]
-          : [],
-        instructions: info.phoneInstructions || null,
-        type: "phone",
-      });
-    }
     const options = await getDb()
       .select()
       .from(s.messagingPlatforms)
@@ -317,7 +297,11 @@ async function dispatch(request: Request, segments: string[], method: string) {
       instructions:
         options.find((p) => p.key === platform.key)?.instructions || null,
       channels: options
-        .filter((p) => messengerLink(p) && p.key === platform.key)
+        .filter(
+          (p) =>
+            ["telegram", "whatsapp", "bale"].includes(p.key) &&
+            messengerLink(p),
+        )
         .sort(
           (a, b) =>
             Number(b.key === platform.key) - Number(a.key === platform.key),
