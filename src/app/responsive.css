@@ -760,6 +760,20 @@
   .footer-main .brand strong {
     font-size: 17px;
   }
+  .footer-main .brand {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .footer-main .brand > span:last-child {
+    flex: 1;
+  }
+  .footer-main .brand small {
+    max-width: none;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.9;
+    text-wrap: balance;
+  }
   .footer-main h3 {
     font-size: 12px;
     margin-bottom: 13px;

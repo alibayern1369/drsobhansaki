@@ -124,6 +124,9 @@ svg {
   justify-content: center;
   position: relative;
 }
+[dir="rtl"] .brand small {
+  letter-spacing: normal;
+}
 .brand-symbol i {
   position: absolute;
   top: 5px;
