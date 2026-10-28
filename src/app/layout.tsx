@@ -9,6 +9,7 @@ import "./patient.css";
 const vazir = localFont({
   src: "../../public/fonts/Vazirmatn.ttf",
   variable: "--font-vazir",
+  weight: "100 900",
   display: "swap",
 });
 export const metadata: Metadata = {

@@ -129,7 +129,9 @@ export function AccountMenu({ locale }: { locale: Locale }) {
         <span>
           {user.name?.trim() || (fa ? "حساب بیمار" : "Patient account")}
         </span>
-        <span aria-hidden="true">⌄</span>
+        <span className="account-chevron" aria-hidden="true">
+          <Icon name="down" size={16} />
+        </span>
       </button>
       {open && (
         <div className="account-dropdown" id="account-dropdown">

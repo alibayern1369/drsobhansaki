@@ -68,6 +68,9 @@ h2,
 h3 {
   letter-spacing: -0.8px;
 }
+[dir="rtl"] :is(h1, h2, h3, .eyebrow) {
+  letter-spacing: normal;
+}
 p {
   color: var(--muted);
 }

@@ -93,6 +93,16 @@
   max-width: 135px;
   font-size: 12px;
 }
+.account-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+.account-trigger[aria-expanded="true"] .account-chevron svg {
+  transform: rotate(180deg);
+}
 .account-avatar {
   display: inline-flex;
   align-items: center;
@@ -748,7 +758,7 @@
   }
 }
 .patient-portal {
-  padding-block: 24px 48px;
+  padding: 24px clamp(16px, 2vw, 28px) 48px;
   border-radius: 28px;
   background: linear-gradient(145deg, #f8faff, #f2f5fa);
   color: #20334d;
@@ -914,6 +924,14 @@
   align-items: center;
   gap: 10px;
   font-size: 15px;
+  font-weight: 600;
+  line-height: 1.8;
+}
+.patient-detail > h3 {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.8;
+  margin-block: 20px 12px;
 }
 .consultation-contact p {
   font-size: 12px;
@@ -970,6 +988,15 @@
   .patient-portal {
     padding: 14px 10px 24px;
     gap: 16px;
+  }
+  .patient-main .dashboard-title h1 {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .patient-main h2 {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.8;
   }
   .patient-main .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
