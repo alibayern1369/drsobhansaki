@@ -108,7 +108,7 @@ export function ConsultationContact({
   );
 }
 
-function MessengerLogo({ channel }: { channel: string }) {
+export function MessengerLogo({ channel }: { channel: string }) {
   return (
     <svg
       viewBox="0 0 24 24"

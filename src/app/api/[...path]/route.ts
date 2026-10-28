@@ -805,3 +805,7 @@ export const POST = (r: Request, c: { params: Promise<{ path: string[] }> }) =>
   handle(r, c, "POST");
 export const PUT = (r: Request, c: { params: Promise<{ path: string[] }> }) =>
   handle(r, c, "PUT");
+export const DELETE = (
+  r: Request,
+  c: { params: Promise<{ path: string[] }> },
+) => handle(r, c, "DELETE");

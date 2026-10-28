@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { Locale } from "@/lib/content";
 import { normalizeDigits } from "@/lib/admin-labels";
 import { Icon } from "./icon";
+import { BankCard } from "./bank-card";
 import { upload } from "@vercel/blob/client";
 import { MAX_RECEIPT_BYTES, RECEIPT_MIME_TYPES } from "@/lib/receipt-policy";
 import { patientFetch } from "@/lib/patient-fetch";
@@ -186,31 +187,11 @@ export function ReceiptForm({
             : "No payment account is currently active. Please contact support."}
         </p>
       )}
-      {banks.map((b) => (
-        <div key={b.id} className="bank-card">
-          <span>{b.bankName}</span>
-          <strong dir="ltr">{b.cardNumber.replace(/(.{4})/g, "$1 ")}</strong>
-          <span>{b.holderName}</span>
-          <button
-            type="button"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(b.cardNumber);
-                setMessage(fa ? "شماره کارت کپی شد." : "Card number copied.");
-              } catch {
-                setMessage(
-                  fa
-                    ? "شماره کارت را انتخاب و کپی کنید."
-                    : "Select and copy the card number.",
-                );
-              }
-            }}
-          >
-            <Icon name="copy" size={16} />
-            {fa ? "کپی شماره کارت" : "Copy card number"}
-          </button>
-        </div>
-      ))}
+      <div className="bank-card-grid">
+        {banks.map((b) => (
+          <BankCard key={b.id} bank={b} locale={locale} />
+        ))}
+      </div>
       <div className="field">
         <label htmlFor={`bank-${appointmentId}`}>
           {fa ? "حساب مقصد" : "Destination account"}

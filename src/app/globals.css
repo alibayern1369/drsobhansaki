@@ -1477,3 +1477,207 @@ h2 {
 .consultation-contact h3 {
   font-size: 18px;
 }
+.bank-card-grid,
+.contact-card-grid,
+.staff-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 18px;
+  margin-block: 20px;
+}
+.payment-bank-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 22px;
+  color: #fff;
+  box-shadow: 0 12px 28px #12253120;
+  min-width: 0;
+}
+.payment-bank-card:before {
+  content: "";
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border: 1px solid #ffffff18;
+  border-radius: 50%;
+  inset-inline-end: -90px;
+  top: 40px;
+  pointer-events: none;
+}
+.payment-bank-heading,
+.payment-bank-footer,
+.card-actions,
+.contact-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+.bank-logo {
+  background-image: url("/banks/logos.png");
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 16px;
+  background-color: white;
+}
+.payment-bank-heading > span:nth-child(2) {
+  flex: 1;
+  font-weight: 700;
+}
+.card-chip {
+  width: 32px;
+  height: 25px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #f8e7b3, #b99c61);
+  border: 1px solid #f4dfab;
+}
+.payment-bank-number {
+  display: block;
+  text-align: center;
+  font-size: clamp(19px, 3vw, 26px);
+  letter-spacing: 2px;
+  white-space: nowrap;
+  margin-block: 24px;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+.payment-bank-footer {
+  font-size: 13px;
+}
+.payment-bank-footer button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff18;
+  border: 1px solid #ffffff40;
+  border-radius: 12px;
+  color: white;
+  min-height: 44px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.bank-copy-status {
+  display: block;
+  font-size: 12px;
+  min-height: 18px;
+  margin-top: 6px;
+}
+.bank-management-card,
+.contact-editor-card {
+  border: 1px solid var(--border, #dce5e5);
+  background: var(--surface, #fff);
+  border-radius: 24px;
+  padding: 12px;
+  min-width: 0;
+}
+.card-actions {
+  padding: 12px 4px;
+  flex-wrap: wrap;
+}
+.bank-management-card summary {
+  cursor: pointer;
+  padding: 12px;
+  font-weight: 700;
+}
+.bank-editor {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.bank-editor h2,
+.bank-editor > .checkbox,
+.bank-editor > button {
+  grid-column: 1/-1;
+}
+.bank-editor .field {
+  margin: 0;
+}
+.contact-editor-card {
+  padding: 20px;
+  border-top: 4px solid currentColor;
+}
+.contact-card-heading {
+  margin-bottom: 20px;
+}
+.contact-card-heading h2 {
+  font-size: 18px;
+  flex: 1;
+  margin: 0;
+}
+.contact-editor-card .field {
+  color: var(--ink, #243d42);
+}
+.batch-save-bar {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border: 1px solid #dce5e5;
+  background: var(--surface, #fff);
+  border-radius: 18px;
+  z-index: 2;
+}
+.staff-card-grid .staff-account {
+  margin: 0;
+  padding: 18px;
+  border-radius: 20px;
+}
+.staff-card-grid summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.staff-card-grid summary strong {
+  flex-basis: 100%;
+  font-size: 18px;
+}
+@media (max-width: 480px) {
+  .bank-editor {
+    grid-template-columns: 1fr;
+  }
+  .payment-bank-card {
+    padding: 18px;
+  }
+  .payment-bank-number {
+    letter-spacing: 1px;
+  }
+}
+.bank-editor-preview,
+.bank-choice-grid {
+  grid-column: 1/-1;
+}
+.bank-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  max-height: 230px;
+  overflow: auto;
+  padding: 4px;
+}
+.bank-choice-grid button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #dce5e5;
+  border-radius: 14px;
+  background: transparent;
+  padding: 8px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  color: inherit;
+}
+.bank-choice-grid button[aria-pressed="true"] {
+  border: 2px solid #267c74;
+  background: #267c7410;
+}
+.bank-choice-grid .bank-logo {
+  transform: scale(0.7);
+  margin: -8px;
+}

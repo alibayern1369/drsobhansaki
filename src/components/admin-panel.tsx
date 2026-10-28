@@ -11,7 +11,7 @@ import { AdminSecuritySettings } from "./admin-security-settings";
 import { AdminSiteSettings, type ContentRow } from "./admin-site-settings";
 import { ReceiptStorageSettings } from "./receipt-storage-settings";
 import { ConsultationFees } from "./consultation-fees";
-import { adminLabel } from "@/lib/admin-labels";
+import { ContactCards } from "./contact-cards";
 type AdminData = {
   role: string;
   currentUserId: string;
@@ -150,8 +150,10 @@ export function AdminPanel({
       if (!r.ok) throw new Error(d.message);
       setMessage(fa ? "ذخیره شد." : "Saved.");
       await load();
+      return true;
     } catch (e) {
       setMessage((e as Error).message);
+      return false;
     } finally {
       setBusy(false);
     }
@@ -411,59 +413,23 @@ export function AdminPanel({
                   : "Consultation contacts are separate from footer social links. Enter a WhatsApp number or a Telegram/Bale username or HTTPS link. Approved patients can open chat and send documents there."}
               </p>
             )}
-            {tab === "platforms" &&
-              data.platforms.map((p) => (
-                <form
-                  className="content-panel"
-                  key={p.id}
-                  style={{ marginBottom: 20 }}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const f = new FormData(e.currentTarget);
-                    void save(`platforms/${p.id}`, {
-                      enabled: f.get("enabled") === "on",
-                      contactNumber: f.get("phone") || null,
-                      username: f.get("username") || null,
-                      link: f.get("link") || null,
-                    });
-                  }}
-                >
-                  <h2>{adminLabel(p.key, fa)}</h2>
-                  {[
-                    [
-                      "phone",
-                      fa ? "شماره تماس" : "Contact number",
-                      p.contactNumber,
-                    ],
-                    ["username", fa ? "نام کاربری" : "Username", p.username],
-                    ["link", fa ? "لینک HTTPS" : "HTTPS link", p.link],
-                  ].map(([name, label, value]) => (
-                    <div className="field" key={name}>
-                      <label htmlFor={`${p.id}-${name}`}>{label}</label>
-                      <input
-                        id={`${p.id}-${name}`}
-                        name={name!}
-                        defaultValue={value || ""}
-                        dir="ltr"
-                      />
-                    </div>
-                  ))}
-                  <label className="checkbox">
-                    <input
-                      type="checkbox"
-                      name="enabled"
-                      defaultChecked={p.enabled}
-                    />
-                    {fa ? "فعال" : "Enabled"}
-                  </label>
-                  <button className="button button-small" disabled={busy}>
-                    {fa ? "ذخیره" : "Save"}
-                  </button>
-                </form>
-              ))}
+            {tab === "platforms" && (
+              <ContactCards
+                platforms={data.platforms}
+                locale={locale}
+                busy={busy}
+                save={save}
+              />
+            )}
             {tab === "articles" && (
               <>
-                <ArticleEditor locale={locale} busy={busy} save={save} />
+                <ArticleEditor
+                  locale={locale}
+                  busy={busy}
+                  save={async (...args) => {
+                    await save(...args);
+                  }}
+                />
                 <div style={{ marginTop: 25 }}>
                   <AdminOperations tab="articles" locale={locale} />
                 </div>
@@ -485,7 +451,9 @@ export function AdminPanel({
                 settings={data.settings}
                 content={data.content}
                 busy={busy}
-                save={save}
+                save={async (...args) => {
+                  await save(...args);
+                }}
               />
             )}
             {tab === "receipt-storage" && (

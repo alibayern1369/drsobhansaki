@@ -10,6 +10,8 @@ import { SmsWorkflowSettings } from "./sms-workflow-settings";
 import { isSmsEvent } from "@/lib/sms-workflow";
 import { formatPhone } from "@/lib/phone-display";
 import { AdminAccountCreator } from "./admin-account-creator";
+import { BankCard, BankLogo } from "./bank-card";
+import { iranianBanks } from "@/lib/iranian-banks";
 type Row = Record<string, string | number | boolean | null>;
 type Collection = {
   slots?: Row[];
@@ -38,6 +40,10 @@ export function AdminOperations({
   const [data, setData] = useState<Row[] | Collection | null>(null);
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
+  const [roleDrafts, setRoleDrafts] = useState<
+    Record<string, { role: string; disabled: boolean }>
+  >({});
+  const [batchBusy, setBatchBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const endpoint = tab === "articles" ? "article-list" : tab;
   useEffect(() => {
@@ -75,9 +81,13 @@ export function AdminOperations({
           ? fa
             ? `${d.count} زمان جدید ساخته شد؛ زمان‌های تکراری اضافه نشدند.`
             : `Created ${d.count} new times; duplicates skipped.`
-          : fa
-            ? "ذخیره شد."
-            : "Saved.",
+          : d.retained
+            ? fa
+              ? "این حساب دارای رسید است؛ برای حفظ سابقه پرداخت غیرفعال شد."
+              : "Account disabled to preserve payment history."
+            : fa
+              ? "ذخیره شد."
+              : "Saved.",
       );
       const reload = await fetch(`/api/admin/${endpoint}`, {
         headers: { "Accept-Language": locale },
@@ -257,82 +267,135 @@ export function AdminOperations({
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              {rows
-                .filter((r) =>
-                  normalizeDigits(
-                    `${r.name || ""} ${r.phone || ""} ${r.username || ""}`,
-                  )
-                    .toLowerCase()
-                    .includes(normalizeDigits(search).toLowerCase()),
-                )
-                .map((r) => (
-                  <details className="staff-account" key={String(r.id)}>
-                    <summary>
-                      <strong>{String(r.name || r.phone)}</strong> ·{" "}
-                      {String(r.username || "")} ·{" "}
-                      {adminLabel(String(r.role), fa)}
-                    </summary>
-                    <form
-                      className="content-panel"
-                      key={String(r.id)}
-                      style={{ marginBottom: 15 }}
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        const f = new FormData(e.currentTarget);
-                        void save(`roles/${r.id}`, {
-                          role: f.get("role"),
-                          disabled: f.get("disabled") === "on",
-                        });
-                      }}
-                    >
-                      <strong>
-                        {r.name || (
-                          <bdi dir="ltr">
-                            {formatPhone(String(r.phone || ""))}
-                          </bdi>
-                        )}
-                      </strong>
-                      <div className="field">
-                        <label htmlFor={`role-${r.id}`}>
-                          {fa ? "نقش" : "Role"}
-                        </label>
-                        <select
-                          id={`role-${r.id}`}
-                          name="role"
-                          disabled={r.id === currentUserId}
-                          defaultValue={String(r.role)}
-                        >
-                          {[
-                            ["staff", "کارمند مجاز", "Authorized staff"],
-                            ["doctor", "پزشک", "Doctor"],
-                            ["super_admin", "مدیر کل", "Super administrator"],
-                          ].map(([v, f, e]) => (
-                            <option key={v} value={v}>
-                              {fa ? f : e}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <label className="checkbox">
-                        <input
-                          type="checkbox"
-                          name="disabled"
-                          disabled={r.id === currentUserId}
-                          defaultChecked={!!r.disabled}
-                        />
-                        {fa ? "غیرفعال کردن حساب" : "Disable account"}
-                      </label>
-                      <button
-                        className="button button-small"
-                        disabled={busy || r.id === currentUserId}
-                      >
-                        {fa
-                          ? "ذخیره و لغو نشست‌های قبلی"
-                          : "Save & revoke existing sessions"}
-                      </button>
-                    </form>
-                  </details>
-                ))}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const changes = rows
+                    .filter((r) => r.id !== currentUserId)
+                    .map((r) => ({
+                      id: r.id,
+                      role: roleDrafts[String(r.id)]?.role ?? String(r.role),
+                      disabled:
+                        roleDrafts[String(r.id)]?.disabled ?? !!r.disabled,
+                    }))
+                    .filter((v) => {
+                      const r = rows.find((r) => r.id === v.id)!;
+                      return r.role !== v.role || !!r.disabled !== v.disabled;
+                    });
+                  setBatchBusy(true);
+                  try {
+                    for (const v of changes) {
+                      if (
+                        !(await save(`roles/${v.id}`, {
+                          role: v.role,
+                          disabled: v.disabled,
+                        }))
+                      )
+                        break;
+                      setRoleDrafts((current) => {
+                        const next = { ...current };
+                        delete next[String(v.id)];
+                        return next;
+                      });
+                    }
+                  } finally {
+                    setBatchBusy(false);
+                  }
+                }}
+              >
+                <div className="staff-card-grid">
+                  {rows
+                    .filter((r) =>
+                      normalizeDigits(
+                        `${r.name || ""} ${r.phone || ""} ${r.username || ""}`,
+                      )
+                        .toLowerCase()
+                        .includes(normalizeDigits(search).toLowerCase()),
+                    )
+                    .map((r) => (
+                      <details className="staff-account" key={String(r.id)}>
+                        <summary>
+                          <strong>{String(r.name || r.phone)}</strong> ·{" "}
+                          {String(r.username || "")} ·{" "}
+                          {adminLabel(String(r.role), fa)}
+                        </summary>
+                        <div className="content-panel">
+                          <strong>
+                            {r.name || (
+                              <bdi dir="ltr">
+                                {formatPhone(String(r.phone || ""))}
+                              </bdi>
+                            )}
+                          </strong>
+                          <div className="field">
+                            <label htmlFor={`role-${r.id}`}>
+                              {fa ? "نقش" : "Role"}
+                            </label>
+                            <select
+                              id={`role-${r.id}`}
+                              name={`role-${r.id}`}
+                              disabled={batchBusy || r.id === currentUserId}
+                              value={
+                                roleDrafts[String(r.id)]?.role ?? String(r.role)
+                              }
+                              onChange={(e) =>
+                                setRoleDrafts((d) => ({
+                                  ...d,
+                                  [String(r.id)]: {
+                                    role: e.target.value,
+                                    disabled:
+                                      d[String(r.id)]?.disabled ?? !!r.disabled,
+                                  },
+                                }))
+                              }
+                            >
+                              {[
+                                ["staff", "کارمند مجاز", "Authorized staff"],
+                                ["doctor", "پزشک", "Doctor"],
+                                [
+                                  "super_admin",
+                                  "مدیر کل",
+                                  "Super administrator",
+                                ],
+                              ].map(([v, f, e]) => (
+                                <option key={v} value={v}>
+                                  {fa ? f : e}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <label className="checkbox">
+                            <input
+                              type="checkbox"
+                              name={`disabled-${r.id}`}
+                              disabled={batchBusy || r.id === currentUserId}
+                              checked={
+                                roleDrafts[String(r.id)]?.disabled ??
+                                !!r.disabled
+                              }
+                              onChange={(e) =>
+                                setRoleDrafts((d) => ({
+                                  ...d,
+                                  [String(r.id)]: {
+                                    role:
+                                      d[String(r.id)]?.role ?? String(r.role),
+                                    disabled: e.target.checked,
+                                  },
+                                }))
+                              }
+                            />
+                            {fa ? "غیرفعال کردن حساب" : "Disable account"}
+                          </label>
+                        </div>
+                      </details>
+                    ))}
+                </div>
+                <div className="batch-save-bar">
+                  <button className="button" disabled={busy || batchBusy}>
+                    {fa ? "ذخیره تغییرات کارکنان" : "Save staff changes"}
+                  </button>
+                </div>
+              </form>
             </>
           )}
           {tab === "calendar" && collection && (
@@ -618,20 +681,69 @@ export function AdminOperations({
           )}
           {tab === "banks" && (
             <>
-              <BankEditor
-                locale={locale}
-                busy={busy}
-                onSave={(v) => save("banks", v, "POST")}
-              />
-              {rows.map((b) => (
+              <details className="staff-account">
+                <summary>{fa ? "افزودن کارت بانکی" : "Add bank card"}</summary>
                 <BankEditor
-                  key={String(b.id)}
                   locale={locale}
                   busy={busy}
-                  initial={b}
-                  onSave={(v) => save(`banks/${b.id}`, v)}
+                  onSave={(v) => save("banks", v, "POST")}
                 />
-              ))}
+              </details>
+              <div className="bank-card-grid">
+                {rows.map((b) => (
+                  <section className="bank-management-card" key={String(b.id)}>
+                    <BankCard
+                      bank={{
+                        bankName: String(b.bankName),
+                        holderName: String(b.holderName),
+                        cardNumber: String(b.cardNumber),
+                      }}
+                      locale={locale}
+                    />
+                    <div className="card-actions">
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={!!b.enabled}
+                          disabled={busy}
+                          onChange={(e) =>
+                            void save(`banks/${b.id}`, {
+                              ...b,
+                              enabled: e.target.checked,
+                            })
+                          }
+                        />
+                        {fa ? "فعال برای پرداخت" : "Active for payments"}
+                      </label>
+                      <button
+                        className="text-link"
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            window.confirm(
+                              fa
+                                ? "این حساب حذف شود؟ حساب دارای رسید غیرفعال می‌شود."
+                                : "Delete this account? Accounts with receipts will be disabled.",
+                            )
+                          )
+                            void save(`banks/${b.id}`, {}, "DELETE");
+                        }}
+                      >
+                        {fa ? "حذف" : "Delete"}
+                      </button>
+                    </div>
+                    <details>
+                      <summary>{fa ? "ویرایش کارت" : "Edit card"}</summary>
+                      <BankEditor
+                        locale={locale}
+                        busy={busy}
+                        initial={b}
+                        onSave={(v) => save(`banks/${b.id}`, v)}
+                      />
+                    </details>
+                  </section>
+                ))}
+              </div>
             </>
           )}
           {tab === "articles" &&
@@ -769,9 +881,14 @@ function BankEditor({
   onSave: (v: unknown) => Promise<boolean>;
 }) {
   const fa = locale === "fa";
+  const [selectedBank, setSelectedBank] = useState(
+    String(initial?.bankName || iranianBanks[0].name),
+  );
+  const [holder, setHolder] = useState(String(initial?.holderName || ""));
+  const [number, setNumber] = useState(String(initial?.cardNumber || ""));
   return (
     <form
-      className="content-panel"
+      className="content-panel bank-editor"
       style={{ marginBottom: 20 }}
       onSubmit={async (e) => {
         e.preventDefault();
@@ -787,7 +904,12 @@ function BankEditor({
           enabled: f.get("enabled") === "on",
           sortOrder: Number(f.get("sortOrder")),
         });
-        if (saved && !initial) form.reset();
+        if (saved && !initial) {
+          form.reset();
+          setHolder("");
+          setNumber("");
+          setSelectedBank(iranianBanks[0].name);
+        }
       }}
     >
       <h2>
@@ -799,8 +921,56 @@ function BankEditor({
             ? "Edit bank account"
             : "Add bank account"}
       </h2>
+      <div className="field">
+        <label htmlFor={`bank-name-${initial?.id || "new"}`}>
+          {fa ? "انتخاب بانک" : "Choose bank"}
+        </label>
+        <select
+          name="bankName"
+          id={`bank-name-${initial?.id || "new"}`}
+          value={selectedBank}
+          onChange={(e) => setSelectedBank(e.target.value)}
+        >
+          {initial?.bankName &&
+            !iranianBanks.some((b) => b.name === initial.bankName) && (
+              <option>{String(initial.bankName)}</option>
+            )}
+          {iranianBanks.map((b) => (
+            <option key={b.id} value={b.name}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="bank-editor-preview">
+        <BankCard
+          locale={locale}
+          bank={{
+            bankName: selectedBank,
+            holderName: holder,
+            cardNumber: number,
+          }}
+        />
+      </div>
+      <div
+        className="bank-choice-grid"
+        role="group"
+        aria-label={fa ? "بانک‌ها" : "Banks"}
+      >
+        {iranianBanks.map((b) => (
+          <button
+            type="button"
+            key={b.id}
+            aria-pressed={selectedBank === b.name}
+            title={b.name}
+            onClick={() => setSelectedBank(b.name)}
+          >
+            <BankLogo name={b.name} />
+            <span>{b.name}</span>
+          </button>
+        ))}
+      </div>
       {[
-        ["bankName", "نام بانک", "Bank name"],
         ["holderName", "نام دارنده", "Cardholder name"],
         ["cardNumber", "شماره کارت ۱۶رقمی", "16-digit card number"],
         ["sortOrder", "ترتیب نمایش", "Display order"],
@@ -809,6 +979,13 @@ function BankEditor({
           <label htmlFor={`${initial?.id || "new"}-${key}`}>{fa ? f : e}</label>
           <input
             name={key}
+            onChange={(e) => {
+              if (key === "holderName") setHolder(e.target.value);
+              if (key === "cardNumber")
+                setNumber(
+                  normalizeDigits(e.target.value).replace(/[\s-]/g, ""),
+                );
+            }}
             id={`${initial?.id || "new"}-${key}`}
             defaultValue={String(
               initial?.[key] ?? (key === "sortOrder" ? 0 : ""),
@@ -825,7 +1002,7 @@ function BankEditor({
         <input
           name="enabled"
           type="checkbox"
-          defaultChecked={!!initial?.enabled}
+          defaultChecked={initial ? !!initial.enabled : true}
         />
         {fa ? "نمایش برای پرداخت‌های جدید" : "Enable for new payments"}
       </label>
