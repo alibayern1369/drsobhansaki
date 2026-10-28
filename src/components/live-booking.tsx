@@ -15,11 +15,13 @@ export function LiveBooking({
   config,
   draft,
   onCreated,
+  onBusyChange,
 }: {
   locale: Locale;
   type: string;
   config: BookingConfig;
   onCreated: (appointment: PatientAppointment) => void;
+  onBusyChange?: (busy: boolean) => void;
   draft: {
     platform: string;
     mode: string;
@@ -34,6 +36,10 @@ export function LiveBooking({
   const [platform, setPlatform] = useState(draft.platform);
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    onBusyChange?.(busy);
+    return () => onBusyChange?.(false);
+  }, [busy, onBusyChange]);
   const [error, setError] = useState("");
   const consultation = config.types.find((t) => t.key === type);
   const messenger = config.platforms.find((p) => p.key === platform);

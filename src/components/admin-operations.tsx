@@ -83,8 +83,8 @@ export function AdminOperations({
             : `Created ${d.count} new times; duplicates skipped.`
           : d.retained
             ? fa
-              ? "این حساب دارای رسید است؛ برای حفظ سابقه پرداخت غیرفعال شد."
-              : "Account disabled to preserve payment history."
+              ? "کارت از فهرست حذف شد؛ سوابق پرداخت محفوظ است."
+              : "Card removed; payment history preserved."
             : fa
               ? "ذخیره شد."
               : "Saved.",
@@ -722,8 +722,8 @@ export function AdminOperations({
                           if (
                             window.confirm(
                               fa
-                                ? "این حساب حذف شود؟ حساب دارای رسید غیرفعال می‌شود."
-                                : "Delete this account? Accounts with receipts will be disabled.",
+                                ? "این کارت از فهرست حذف شود؟ سوابق پرداخت حفظ می‌شوند."
+                                : "Remove this card? Payment history will be preserved.",
                             )
                           )
                             void save(`banks/${b.id}`, {}, "DELETE");

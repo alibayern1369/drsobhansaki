@@ -23,3 +23,17 @@ test("each bank has a unique bundled logo position and valid brand color", () =>
     assert.ok(!bank.name.includes("?"));
   }
 });
+
+test("Blu aliases select its own brand rather than the parent bank", () => {
+  for (const name of [
+    "بلوبانک",
+    "بلو بانک",
+    "بلو",
+    "بانک بلو",
+    "blu",
+    "BLUBANK",
+  ]) {
+    assert.equal(findIranianBank(name)?.id, "blu");
+  }
+  assert.equal(findIranianBank("بانک سامان")?.id, "sb");
+});

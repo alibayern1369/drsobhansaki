@@ -1,6 +1,7 @@
 import "server-only";
 import {
   and,
+  isNull,
   asc,
   desc,
   eq,
@@ -17,6 +18,7 @@ import { AppError } from "./security";
 import { normalizeDigits } from "@/lib/admin-labels";
 import { after } from "next/server";
 import { runJobs } from "./jobs";
+import { archiveBankAccount } from "./bank-accounts";
 const uuid = z.uuid();
 type User = { id: string; role: string };
 export async function adminOperations(
@@ -413,41 +415,16 @@ export async function adminOperations(
       await db
         .select()
         .from(s.bankAccounts)
+        .where(isNull(s.bankAccounts.deletedAt))
         .orderBy(asc(s.bankAccounts.sortOrder)),
     );
   }
   if (key === "banks" && method === "DELETE" && path[2]) {
     privileged();
     const id = uuid.parse(path[2]);
-    const retained = await db.transaction(async (tx) => {
-      const [bank] = await tx
-        .select()
-        .from(s.bankAccounts)
-        .where(eq(s.bankAccounts.id, id))
-        .for("update");
-      if (!bank) throw new AppError(404, "NOT_FOUND");
-      const [receipt] = await tx
-        .select({ id: s.paymentSubmissions.id })
-        .from(s.paymentSubmissions)
-        .where(eq(s.paymentSubmissions.bankAccountId, id))
-        .limit(1);
-      if (receipt)
-        await tx
-          .update(s.bankAccounts)
-          .set({ enabled: false, updatedAt: new Date() })
-          .where(eq(s.bankAccounts.id, id));
-      else await tx.delete(s.bankAccounts).where(eq(s.bankAccounts.id, id));
-      await tx
-        .insert(s.auditLogs)
-        .values({
-          actorId: user.id,
-          action: receipt ? "bank.disable" : "bank.delete",
-          entityType: "bank",
-          entityId: id,
-        });
-      return !!receipt;
-    });
-    return json({ ok: true, retained });
+    const archived = await archiveBankAccount(db, id, user.id);
+    if (!archived) throw new AppError(404, "NOT_FOUND");
+    return json({ ok: true, ...archived });
   }
   if (key === "banks" && method === "PUT" && path[2]) {
     privileged();
@@ -465,10 +442,12 @@ export async function adminOperations(
       .parse(await request.json());
     const id = uuid.parse(path[2]);
     await db.transaction(async (tx) => {
-      await tx
+      const changed = await tx
         .update(s.bankAccounts)
         .set({ ...data, updatedAt: new Date() })
-        .where(eq(s.bankAccounts.id, id));
+        .where(and(eq(s.bankAccounts.id, id), isNull(s.bankAccounts.deletedAt)))
+        .returning({ id: s.bankAccounts.id });
+      if (!changed.length) throw new AppError(404, "NOT_FOUND");
       await tx.insert(s.auditLogs).values({
         actorId: user.id,
         action: "bank.update",

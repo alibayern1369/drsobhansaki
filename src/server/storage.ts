@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, eq, gt, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import {
@@ -102,6 +102,7 @@ export async function prepareReceipt(appointmentId: string, input: unknown) {
         and(
           eq(bankAccounts.id, data.bankAccountId),
           eq(bankAccounts.enabled, true),
+          isNull(bankAccounts.deletedAt),
         ),
       );
     if (!bank) throw new AppError(400, "BANK_ACCOUNT_UNAVAILABLE");

@@ -13,10 +13,12 @@ export function ReceiptForm({
   appointmentId,
   locale,
   onSubmitted,
+  onBusyChange,
 }: {
   appointmentId: string;
   locale: Locale;
   onSubmitted: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const fa = locale === "fa";
   const router = useRouter();
@@ -41,6 +43,10 @@ export function ReceiptForm({
   );
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    onBusyChange?.(busy);
+    return () => onBusyChange?.(false);
+  }, [busy, onBusyChange]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploaded, setUploaded] = useState(false);
   const [uploadKey, setUploadKey] = useState(() => crypto.randomUUID());

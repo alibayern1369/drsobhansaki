@@ -44,6 +44,7 @@ export function BookingForm({
     [success, setSuccess] = useState(false),
     [busy, setBusy] = useState(false),
     [attempt, setAttempt] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
     let active = true;
     async function load() {
@@ -151,26 +152,43 @@ export function BookingForm({
         `/${locale}/login?next=${encodeURIComponent(`/${locale}/booking?resume=1`)}`,
       );
   }
-  async function backToTime() {
-    if (!appointment) return;
+  async function navigateBooking(target: 1 | 2, restart = false) {
+    if (busy || submitting) return;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch(
-        `/api/patient/appointments/${appointment.id}/release`,
-        { method: "POST", headers: { "Accept-Language": locale } },
+      if (
+        appointment &&
+        !success &&
+        appointment.status === "awaiting_payment" &&
+        appointment.paymentStatus === "awaiting_payment"
+      ) {
+        const r = await patientFetch(
+          `/api/patient/appointments/${appointment.id}/release`,
+          { method: "POST", headers: { "Accept-Language": locale } },
+        );
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message);
+      }
+      sessionStorage.removeItem(bookingDraftKey(locale));
+      setDraft(
+        restart
+          ? null
+          : {
+              platform: draft?.platform || "",
+              mode: "patient",
+              slotId: "",
+              idempotencyKey: crypto.randomUUID(),
+            },
       );
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.message);
-      setDraft((previous) => ({
-        platform: previous?.platform || "",
-        mode: previous?.mode || "patient",
-        slotId: previous?.slotId || appointment.slotId || "",
-        idempotencyKey: crypto.randomUUID(),
-      }));
+      if (restart) setType(initialType === "text" ? "text" : "phone");
       setAppointment(null);
-      setStep(2);
-      window.history.replaceState(null, "", `/${locale}/booking?resume=1`);
+      setSuccess(false);
+      setStep(target);
+      window.history.replaceState(null, "", `/${locale}/booking`);
+      // Refresh availability after releasing a held time.
+      const response = await patientFetch("/api/config");
+      if (response.ok) setConfig(await response.json());
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -203,7 +221,7 @@ export function BookingForm({
           </li>
         ))}
       </ol>
-      <div className="form-layout">
+      <div className="form-layout booking-layout">
         <section className="form-panel" aria-live="polite">
           {error && (
             <div className="form-error" role="alert">
@@ -293,30 +311,13 @@ export function BookingForm({
           ) : step === 2 ? (
             <>
               <h2>{fa ? "انتخاب زمان نوبت" : "Choose appointment time"}</h2>
-              <button
-                type="button"
-                className="text-link"
-                onClick={() => {
-                  try {
-                    const saved = bookingDraftSchema.safeParse(
-                      JSON.parse(
-                        sessionStorage.getItem(bookingDraftKey(locale)) ||
-                          "null",
-                      ),
-                    );
-                    if (saved.success) setDraft(saved.data);
-                  } catch {}
-                  setStep(1);
-                }}
-              >
-                {fa ? "بازگشت به نوع مشاوره" : "Back to consultation type"}
-              </button>
               {config && draft && (
                 <LiveBooking
                   locale={locale}
                   type={type}
                   config={config}
                   draft={draft}
+                  onBusyChange={setSubmitting}
                   onCreated={(a) => {
                     setAppointment(a);
                     setStep(3);
@@ -387,7 +388,7 @@ export function BookingForm({
                         : "Submitting a receipt does not confirm your appointment. Review results and correction reasons appear in your dashboard. Doctor contact details unlock after confirmation."}
                     </p>
                     <Link
-                      className="button"
+                      className="button booking-dashboard-button"
                       href={`/${locale}/dashboard?appointment=${appointment.id}`}
                     >
                       {fa ? "مشاهده نوبت در پنل بیمار" : "View appointment"}
@@ -408,6 +409,7 @@ export function BookingForm({
                     <ReceiptForm
                       appointmentId={appointment.id}
                       locale={locale}
+                      onBusyChange={setSubmitting}
                       onSubmitted={() => {
                         setSuccess(true);
                         sessionStorage.removeItem(bookingDraftKey(locale));
@@ -419,15 +421,6 @@ export function BookingForm({
                       refreshKey={appointment.paymentStatus}
                       onFinalized={() => setSuccess(true)}
                     />
-                    <button
-                      className="text-link"
-                      disabled={busy}
-                      onClick={() => void backToTime()}
-                    >
-                      {fa
-                        ? "بازگشت به انتخاب زمان (پیش از پرداخت)"
-                        : "Back to time selection (before payment)"}
-                    </button>
                   </>
                 ) : (
                   <Link
@@ -440,6 +433,59 @@ export function BookingForm({
               </>
             )
           )}
+          {step > 1 && (
+            <nav
+              className="booking-actions"
+              aria-label={fa ? "تغییر مراحل رزرو" : "Booking navigation"}
+            >
+              {step === 2 ? (
+                <button
+                  type="button"
+                  className="button button-outline"
+                  disabled={busy || submitting}
+                  onClick={() => void navigateBooking(1)}
+                >
+                  {fa ? "بازگشت به نوع مشاوره" : "Back to consultation type"}
+                </button>
+              ) : !success &&
+                appointment?.status === "awaiting_payment" &&
+                appointment.paymentStatus === "awaiting_payment" ? (
+                <button
+                  type="button"
+                  className="button button-outline"
+                  disabled={busy || submitting}
+                  onClick={() => void navigateBooking(2)}
+                >
+                  {fa ? "بازگشت و تغییر زمان نوبت" : "Back and change time"}
+                </button>
+              ) : (
+                <Link
+                  className="button button-outline"
+                  href={`/${locale}/dashboard?appointment=${appointment?.id || ""}`}
+                >
+                  {fa
+                    ? "بازگشت به پنل / تغییر نوبت"
+                    : "Dashboard / change appointment"}
+                </Link>
+              )}
+              <button
+                type="button"
+                className="button button-outline"
+                disabled={busy || submitting}
+                onClick={() => void navigateBooking(1, true)}
+              >
+                {fa ? "شروع رزرو جدید از ابتدا" : "Start a new booking"}
+              </button>
+            </nav>
+          )}
+          {step === 3 &&
+            (success || appointment?.paymentStatus !== "awaiting_payment") && (
+              <p className="booking-navigation-help">
+                {fa
+                  ? "شروع رزرو جدید، نوبت ثبت‌شده را لغو نمی‌کند. برای تغییر آن از پنل بیمار اقدام کنید."
+                  : "Starting again keeps your existing appointment. Manage changes in your dashboard."}
+              </p>
+            )}
         </section>
         <aside className="booking-sidebar">
           <strong>{t.name}</strong>

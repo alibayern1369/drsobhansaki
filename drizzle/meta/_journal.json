@@ -36,6 +36,13 @@
       "when": 1793116354512,
       "tag": "0004_patient_portal",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793183502004,
+      "tag": "0005_bank_account_archive",
+      "breakpoints": true
     }
   ]
 }

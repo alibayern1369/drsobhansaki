@@ -6,7 +6,16 @@ import { messengerLink, patientAppointmentView } from "@/lib/booking-flow";
 import { consultationContactAllowed } from "@/lib/patient-portal";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { and, asc, desc, eq, inArray, getTableColumns, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  isNull,
+  inArray,
+  getTableColumns,
+  sql,
+} from "drizzle-orm";
 import { cookies } from "next/headers";
 import { getDb } from "@/db";
 import * as s from "@/db/schema";
@@ -162,7 +171,12 @@ async function dispatch(request: Request, segments: string[], method: string) {
       banks: await db
         .select()
         .from(s.bankAccounts)
-        .where(eq(s.bankAccounts.enabled, true))
+        .where(
+          and(
+            eq(s.bankAccounts.enabled, true),
+            isNull(s.bankAccounts.deletedAt),
+          ),
+        )
         .orderBy(asc(s.bankAccounts.sortOrder)),
     });
   }
@@ -345,7 +359,10 @@ async function dispatch(request: Request, segments: string[], method: string) {
           .limit(100),
         consultations: await db.select().from(s.consultationTypes),
         platforms: await db.select().from(s.messagingPlatforms),
-        banks: await db.select().from(s.bankAccounts),
+        banks: await db
+          .select()
+          .from(s.bankAccounts)
+          .where(isNull(s.bankAccounts.deletedAt)),
         settings: await db.select().from(s.websiteSettings),
         content: await db.select().from(s.localizedContent),
         articles: await db.select().from(s.articles),

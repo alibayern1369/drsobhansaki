@@ -11,7 +11,16 @@ export function BankLogo({ name }: { name: string }) {
       aria-label={name}
       className="bank-logo"
       style={{
-        backgroundPosition: `${-(bank.logo % 5) * 64}px ${-Math.floor(bank.logo / 5) * 64}px`,
+        ...(bank.id === "blu"
+          ? {
+              backgroundImage: "url(/banks/blu.png)",
+              backgroundSize: "64px 64px",
+            }
+          : {}),
+        backgroundPosition:
+          bank.id === "blu"
+            ? "center"
+            : `${-(bank.logo % 5) * 64}px ${-Math.floor(bank.logo / 5) * 64}px`,
       }}
     />
   ) : (

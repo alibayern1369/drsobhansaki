@@ -1095,3 +1095,108 @@
     overflow-wrap: anywhere;
   }
 }
+/* Booking summary and actions share a readable, consistent type scale. */
+.booking-layout .booking-sidebar > strong {
+  display: block;
+  font-size: 16px;
+  line-height: 1.8;
+  font-weight: 700;
+}
+.booking-layout .booking-sidebar > p {
+  font-size: 14px;
+  line-height: 1.9;
+  margin-block: 12px;
+}
+.booking-layout .booking-sidebar h3 {
+  font-size: 16px;
+  line-height: 1.8;
+  font-weight: 700;
+  margin-block: 20px 12px;
+}
+.booking-layout .summary-line {
+  font-size: 14px;
+  line-height: 1.8;
+  align-items: baseline;
+  gap: 16px;
+}
+.booking-layout .summary-line > strong {
+  font-size: inherit;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+.booking-layout .summary-line > span {
+  flex-shrink: 0;
+}
+.booking-layout .notice {
+  font-size: 14px;
+  line-height: 1.9;
+  padding: 16px;
+  margin-block: 20px;
+}
+.booking-layout .form-panel {
+  min-width: 0;
+}
+.booking-layout .form-panel > h2 {
+  font-size: clamp(20px, 3vw, 24px);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.booking-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.booking-actions .button,
+.booking-layout .booking-dashboard-button {
+  min-height: 48px;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.8;
+  padding: 12px 20px;
+}
+.booking-actions .button {
+  flex: 1 1 220px;
+}
+.booking-layout .button-outline {
+  background: transparent;
+  color: var(--blue);
+  border: 1px solid #cbd9ed;
+  box-shadow: none;
+}
+.booking-layout .booking-dashboard-button {
+  display: inline-flex;
+  margin-top: 4px;
+  max-width: 100%;
+}
+.booking-navigation-help {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--muted);
+  margin-top: 12px;
+}
+@media (max-width: 600px) {
+  .booking-layout .summary-line {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .booking-layout .summary-line > strong {
+    margin-inline-start: auto;
+  }
+  .booking-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .booking-actions .button {
+    width: 100%;
+    flex: auto;
+  }
+  .booking-layout .form-panel > .button,
+  .booking-layout .live-booking-form > .button,
+  .booking-layout .booking-dashboard-button {
+    width: 100%;
+  }
+}

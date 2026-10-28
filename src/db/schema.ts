@@ -288,6 +288,7 @@ export const appointmentStatusHistory = pgTable("appointment_status_history", {
   createdAt: created(),
 });
 export const bankAccounts = pgTable("bank_accounts", {
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   id: id(),
   bankName: text("bank_name").notNull(),
   holderName: text("holder_name").notNull(),

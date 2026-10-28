@@ -197,9 +197,16 @@ export const iranianBanks = [
     color: "#163e72",
     logo: 32,
   },
+  { id: "blu", name: "بلوبانک", color: "#1769e0", logo: 33 },
 ] as const;
 export function findIranianBank(name: string) {
   return iranianBanks.find(
-    (b) => b.name === name || b.name.replace("بانک ", "") === name.trim(),
+    (b) =>
+      b.name === name.trim() ||
+      b.name.replace("بانک ", "") === name.trim() ||
+      (b.id === "blu" &&
+        ["بلو", "بلو بانک", "بانک بلو", "blu", "blubank"].includes(
+          name.trim().toLowerCase(),
+        )),
   );
 }
