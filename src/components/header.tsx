@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { copy, type Locale } from "@/lib/content";
 import { Icon } from "./icon";
 import { AccountMenu } from "./account-menu";
@@ -35,6 +35,7 @@ export function Header({
 }) {
   const t = content || copy[locale];
   const [open, setOpen] = useState(false);
+  const menuToggle = useRef<HTMLButtonElement>(null);
   const path = usePathname();
   const links = [
     [`/${locale}`, t.home],
@@ -44,15 +45,28 @@ export function Header({
     [`/${locale}/contact`, t.contact],
   ];
   return (
-    <header className="header">
+    <header
+      className="header"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          setOpen(false);
+          menuToggle.current?.focus();
+        }
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+    >
       <Brand locale={locale} content={t} />
       <nav
+        id="main-navigation"
         className={open ? "navigation is-open" : "navigation"}
         aria-label={locale === "fa" ? "منوی اصلی" : "Main navigation"}
       >
         {links.map(([href, label]) => (
           <Link
             className={path === href ? "active" : ""}
+            aria-current={path === href ? "page" : undefined}
             onClick={() => setOpen(false)}
             href={href}
             key={href}
@@ -64,6 +78,9 @@ export function Header({
       <div className="header-actions">
         <Link
           className="language"
+          lang={locale === "fa" ? "en" : "fa"}
+          hrefLang={locale === "fa" ? "en" : "fa"}
+          aria-label={locale === "fa" ? "Switch to English" : "تغییر زبان به فارسی"}
           href={path.replace(/^\/(fa|en)/, locale === "fa" ? "/en" : "/fa")}
         >
           <Icon name="globe" size={17} />
@@ -76,9 +93,12 @@ export function Header({
           <Icon name="arrow" size={16} />
         </Link>
         <button
+          ref={menuToggle}
+          type="button"
           className="menu-toggle"
           onClick={() => setOpen(!open)}
           aria-expanded={open}
+          aria-controls="main-navigation"
           aria-label={locale === "fa" ? "منوی اصلی" : "Main menu"}
         >
           <Icon name={open ? "close" : "menu"} />

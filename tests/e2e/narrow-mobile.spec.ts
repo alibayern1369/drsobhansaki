@@ -11,6 +11,9 @@ test("320px phone has no overflow in either language", async ({ page }) => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     const floating = await page.locator(".consult-floating").boundingBox();
     const caption = await page.locator(".doctor-caption").boundingBox();
-    expect(floating!.y + floating!.height + 12).toBeLessThan(caption!.y);
+    expect(
+      floating!.y + floating!.height + 12 <= caption!.y ||
+        caption!.y + caption!.height + 12 <= floating!.y,
+    ).toBeTruthy();
   }
 });

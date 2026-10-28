@@ -126,7 +126,24 @@
     display: none;
   }
   .menu-toggle {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    flex-shrink: 0;
+  }
+  .language {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .navigation a {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
   }
   .header-actions {
     gap: 17px;
@@ -1051,6 +1068,21 @@
   .quote-spark {
     font-size: 28px;
     inset-inline-end: -24px;
+  }
+}
+@media (max-width: 600px) {
+  .hero-copy > p,
+  .care-card > p,
+  .service-card p,
+  .about-copy > p,
+  .journal-preview p,
+  .faq-section > div > p,
+  .faq-list summary,
+  .faq-list details > p,
+  .cta-section p,
+  .footer-main > div > p {
+    font-size: 14px;
+    line-height: 1.9;
   }
 }
 @media (prefers-reduced-motion: reduce) {

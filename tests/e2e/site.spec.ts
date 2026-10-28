@@ -119,6 +119,14 @@ test("mobile menu opens and layout does not overflow", async ({ page }) => {
   ).toBeTruthy();
   await page.getByRole("button", { name: "منوی اصلی" }).click();
   await expect(page.locator(".navigation")).toBeVisible();
+  const toggle = page.getByRole("button", { name: "منوی اصلی" });
+  await expect(toggle).toHaveAttribute("aria-controls", "main-navigation");
+  await page.locator('.navigation [aria-current="page"]').focus();
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".navigation")).toBeHidden();
+  await expect(toggle).toBeFocused();
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
   await page.locator(".navigation").getByText("خدمات پزشکی").click();
   await expect(page).toHaveURL(/\/fa\/services$/);
   expect(
