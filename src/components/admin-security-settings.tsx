@@ -89,7 +89,7 @@ export function AdminSecuritySettings({
     }
   }
   return (
-    <section className="content-panel">
+    <section className="content-panel admin-security-panel">
       <h2>
         {onlySms
           ? fa

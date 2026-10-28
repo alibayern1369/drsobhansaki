@@ -5,6 +5,19 @@ import { copy, faqs, services, type Locale } from "@/lib/content";
 import { Icon, type IconName } from "./icon";
 import { Reveal } from "./reveal";
 import { articleCover } from "./article-content";
+
+function DecorativeSpark({ className }: { className: string }) {
+  return (
+    <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <path
+        d="M24 4v40M4 24h40M10 10l28 28M10 38l28-28"
+        stroke="currentColor"
+        strokeWidth="5"
+      />
+    </svg>
+  );
+}
+
 export function Home({
   locale,
   content,
@@ -268,9 +281,7 @@ export function Home({
             {t.philosophy}
             <br />
             <span>{t.philosophy2}</span>
-            <span className="quote-spark" aria-hidden="true">
-              ✳
-            </span>
+            <DecorativeSpark className="quote-spark" />
           </h2>
           <p>{t.philosophyDesc}</p>
         </section>
@@ -458,9 +469,7 @@ export function Home({
       </section>
       <section className="cta-section">
         <div className="cta-orbit" aria-hidden="true" />
-        <span className="cta-star" aria-hidden="true">
-          ✳
-        </span>
+        <DecorativeSpark className="cta-star" />
         <div>
           <span className="eyebrow">
             {fa ? "یک قدم برای حال بهتر" : "A STEP TOWARDS FEELING BETTER"}

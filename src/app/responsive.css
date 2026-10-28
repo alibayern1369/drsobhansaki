@@ -953,6 +953,92 @@
     font-size: 40px;
   }
 }
+@media (max-width: 600px) {
+  .hero-visual {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: clamp(290px, 85vw, 380px) auto;
+    gap: 12px 8px;
+    height: auto;
+    width: 100%;
+    margin: 0;
+  }
+  .doctor-photo {
+    position: relative;
+    inset: auto;
+    grid-column: 1 / -1;
+    height: 100%;
+  }
+  .hero-visual .floating-card {
+    position: static;
+    padding: 10px 8px;
+    gap: 6px;
+    min-width: 0;
+    white-space: normal;
+    animation: none;
+    border-radius: 12px;
+  }
+  .hero-visual .floating-card strong {
+    font-size: 10px;
+    line-height: 1.8;
+  }
+  .hero-visual .floating-card div > span {
+    font-size: 9px;
+    line-height: 1.8;
+  }
+  .hero-visual :is(.soft-icon, .blue-icon) {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+  .hero-visual :is(.soft-icon, .blue-icon) svg {
+    width: 18px;
+    height: 18px;
+  }
+  .hero-visual .mini-pulse,
+  .hero-visual .decor-dots {
+    display: none;
+  }
+  .doctor-caption {
+    bottom: 10px;
+    left: 8px;
+    right: 8px;
+    padding: 9px;
+    gap: 8px;
+  }
+  .doctor-caption strong {
+    font-size: 12px;
+  }
+  .doctor-caption div > span {
+    display: block;
+    font-size: 9px;
+    line-height: 1.8;
+  }
+  .doctor-icon {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+  }
+  .verified-icon {
+    flex-shrink: 0;
+  }
+  .hero-buttons {
+    flex-wrap: wrap;
+  }
+  .hero-buttons .button {
+    flex: 1 1 140px;
+    gap: 10px;
+  }
+  .cta-star {
+    font-size: 48px;
+    top: 12px;
+    opacity: 0.5;
+  }
+  .quote-spark {
+    font-size: 28px;
+    inset-inline-end: -24px;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -182,14 +182,25 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 12px;
   padding: 13px 23px;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   min-height: 49px;
   transition: 0.2s;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.8;
+}
+.button > svg {
+  flex-shrink: 0;
+}
+.quote-spark,
+.cta-star {
+  width: 1em;
+  height: 1em;
 }
 .button:hover {
   background: #0055e1;
