@@ -20,6 +20,7 @@ export function LoginForm({
     [code, setCode] = useState("");
   const [profileRequired, setProfileRequired] = useState(false);
   const [fullName, setFullName] = useState("");
+  const [testMode, setTestMode] = useState(false);
   const [sent, setSent] = useState(false),
     [busy, setBusy] = useState(false),
     [success, setSuccess] = useState(false);
@@ -72,6 +73,7 @@ export function LoginForm({
         router.push(destination);
         router.refresh();
       } else {
+        setTestMode(data.testMode === true);
         setSent(true);
         setCode("");
         setRemaining(60);
@@ -203,6 +205,13 @@ export function LoginForm({
           "Sign in with your mobile number. New accounts are created automatically."
         )}
       </p>
+      {sent && testMode && (
+        <p className="notice warn" role="status">
+          {fa
+            ? "حالت آزمایشی فعال است؛ کد ورود: 123456 (پیامکی ارسال نمی‌شود)."
+            : "Test mode is active. Sign-in code: 123456. No SMS is sent."}
+        </p>
+      )}
       {destination.includes("/booking") && (
         <p className="notice">
           {fa

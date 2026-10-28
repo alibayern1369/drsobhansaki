@@ -12,7 +12,12 @@ import {
   requestKey,
 } from "./security";
 import { sendSms } from "./sms";
-import { temporaryLogin } from "@/lib/test-login";
+import {
+  PATIENT_TEST_CODE,
+  patientChallengeValue,
+  patientTestAccountAllowed,
+} from "@/lib/test-login";
+import { patientTestMode } from "./patient-login-settings";
 export async function requestOtp(phone: string) {
   phoneSchema.parse(phone);
   await rateLimit(`otp:ip:${await requestKey()}`, 15, 900);
@@ -21,24 +26,28 @@ export async function requestOtp(phone: string) {
   const dev =
     process.env.NODE_ENV !== "production" &&
     process.env.SMS_PROVIDER === "development";
-  const temporary = temporaryLogin(phone, process.env);
-  // Never grant a production test-code login to a privileged or disabled user.
-  if (temporary) {
-    const [existing] = await getDb()
-      .select({ role: users.role, disabled: users.disabled })
-      .from(users)
-      .where(eq(users.phone, phone));
-    if (existing && (existing.role !== "patient" || existing.disabled))
-      throw new AppError(403, "FORBIDDEN");
-  }
-  const code =
-    temporary?.code ||
-    (dev ? process.env.DEV_OTP_CODE : String(randomInt(100000, 1000000)));
-  if (!code || !/^\d{6}$/.test(code))
-    throw new AppError(503, "AUTH_NOT_CONFIGURED");
   const db = getDb();
-  const digest = otpHash(phone, code);
-  await db.transaction(async (tx) => {
+  const { code, testMode } = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('patient-login-mode'))`,
+    );
+    const testMode = await patientTestMode(tx);
+    if (testMode) {
+      const [existing] = await tx
+        .select({ role: users.role, disabled: users.disabled })
+        .from(users)
+        .where(eq(users.phone, phone));
+      if (!patientTestAccountAllowed(existing))
+        throw new AppError(403, "FORBIDDEN");
+    }
+    const code = testMode
+      ? PATIENT_TEST_CODE
+      : dev
+        ? process.env.DEV_OTP_CODE
+        : String(randomInt(100000, 1000000));
+    if (!code || !/^\d{6}$/.test(code))
+      throw new AppError(503, "AUTH_NOT_CONFIGURED");
+    const digest = otpHash(phone, patientChallengeValue(code, testMode));
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${phone}))`);
     await tx
       .update(otpChallenges)
@@ -49,12 +58,11 @@ export async function requestOtp(phone: string) {
     await tx.insert(otpChallenges).values({
       phone,
       codeHash: digest,
-      expiresAt: new Date(
-        Math.min(Date.now() + 300000, temporary?.expiresAt || Infinity),
-      ),
+      expiresAt: new Date(Date.now() + 300000),
     });
+    return { code, testMode };
   });
-  if (temporary) return;
+  if (testMode) return { testMode: true };
   try {
     await sendSms(
       phone,
@@ -70,6 +78,7 @@ export async function requestOtp(phone: string) {
       );
     throw e;
   }
+  return { testMode: false };
 }
 export async function verifyOtp(phone: string, code: string) {
   phoneSchema.parse(phone);
@@ -77,6 +86,10 @@ export async function verifyOtp(phone: string, code: string) {
   await rateLimit(`verify:${await requestKey()}`, 30, 900);
   const db = getDb();
   const result = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('patient-login-mode'))`,
+    );
+    const testMode = await patientTestMode(tx);
     const [challenge] = await tx
       .select()
       .from(otpChallenges)
@@ -98,7 +111,7 @@ export async function verifyOtp(phone: string, code: string) {
     if (
       !timingSafeEqual(
         Buffer.from(challenge.codeHash),
-        Buffer.from(otpHash(phone, code)),
+        Buffer.from(otpHash(phone, patientChallengeValue(code, testMode))),
       )
     )
       return null;
@@ -114,16 +127,11 @@ export async function verifyOtp(phone: string, code: string) {
         set: { updatedAt: new Date() },
       })
       .returning();
-    if (
-      user.disabled ||
-      (phone === process.env.TEST_LOGIN_PHONE &&
-        code === process.env.TEST_LOGIN_CODE &&
-        user.role !== "patient")
-    )
+    if (user.disabled || (testMode && !patientTestAccountAllowed(user)))
       return null;
+    await createSession(user.id, false, tx);
     return user;
   });
   if (!result) throw new AppError(400, "INVALID_OTP");
-  await createSession(result.id);
   return result;
 }

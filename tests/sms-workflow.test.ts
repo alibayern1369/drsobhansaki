@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { temporaryLogin } from "../src/lib/test-login";
+import {
+  PATIENT_TEST_CODE,
+  resolvePatientTestMode,
+  patientChallengeValue,
+  patientTestAccountAllowed,
+} from "../src/lib/test-login";
 import { formatPhone } from "../src/lib/phone-display";
 import {
   isSmsEvent,
@@ -12,50 +17,41 @@ import {
 import { sendMelipayamak } from "../src/lib/melipayamak";
 
 const now = Date.parse("2026-10-28T10:00:00Z");
-const env = {
-  TEST_LOGIN_ENABLED: "true",
-  TEST_LOGIN_PHONE: "09123456789",
-  TEST_LOGIN_CODE: "724193",
-  TEST_LOGIN_EXPIRES_AT: "2026-10-28T11:00:00Z",
-};
+test("patient demo login defaults on only before SMS setup and always obeys an explicit toggle", () => {
+  assert.equal(PATIENT_TEST_CODE, "123456");
+  assert.equal(resolvePatientTestMode(undefined, false), true);
+  assert.equal(resolvePatientTestMode(undefined, true), false);
+  for (const configured of [true, false]) {
+    assert.equal(resolvePatientTestMode({ enabled: false }, configured), false);
+    assert.equal(resolvePatientTestMode({ enabled: true }, configured), true);
+    for (const malformed of [null, {}, "true", { enabled: "true" }])
+      assert.equal(resolvePatientTestMode(malformed, configured), false);
+  }
+});
 
-test("temporary login requires explicit enablement, one exact phone and a short activation window", () => {
-  assert.equal(
-    temporaryLogin(env.TEST_LOGIN_PHONE, env, now)?.code,
-    env.TEST_LOGIN_CODE,
+test("switching login mode invalidates old test codes even if a real SMS has the same digits", () => {
+  assert.notEqual(
+    patientChallengeValue("123456", true),
+    patientChallengeValue("123456", false),
   );
-  assert.equal(temporaryLogin("09123456780", env, now), null);
-  assert.equal(
-    temporaryLogin(
-      env.TEST_LOGIN_PHONE,
-      { ...env, TEST_LOGIN_ENABLED: "false" },
-      now,
-    ),
-    null,
+  assert.notEqual(
+    patientChallengeValue("123456", true),
+    patientChallengeValue("654321", true),
   );
-  assert.equal(temporaryLogin(env.TEST_LOGIN_PHONE, {}, now), null);
-  for (const value of [
-    "invalid",
-    "2026-10-28T09:59:59Z",
-    "2026-10-30T00:00:00Z",
-  ])
-    assert.equal(
-      temporaryLogin(
-        env.TEST_LOGIN_PHONE,
-        { ...env, TEST_LOGIN_EXPIRES_AT: value },
-        now,
-      ),
-      null,
-    );
-  for (const value of ["12345", "1234567", "۱۲۳۴۵۶", ""])
-    assert.equal(
-      temporaryLogin(
-        env.TEST_LOGIN_PHONE,
-        { ...env, TEST_LOGIN_CODE: value },
-        now,
-      ),
-      null,
-    );
+});
+
+test("shared patient codes never authorize disabled or privileged accounts", () => {
+  assert.equal(patientTestAccountAllowed(undefined), true);
+  assert.equal(
+    patientTestAccountAllowed({ role: "patient", disabled: false }),
+    true,
+  );
+  assert.equal(
+    patientTestAccountAllowed({ role: "patient", disabled: true }),
+    false,
+  );
+  for (const role of ["super_admin", "doctor", "staff"])
+    assert.equal(patientTestAccountAllowed({ role, disabled: false }), false);
 });
 
 test("Iranian phones display in stable groups regardless of input digit script or country prefix", () => {

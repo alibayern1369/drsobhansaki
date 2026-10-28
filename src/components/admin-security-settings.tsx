@@ -22,6 +22,7 @@ export function AdminSecuritySettings({
     otpBodyId: "",
     from: "",
     passwordConfigured: false,
+    patientTestMode: true,
   });
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -267,6 +268,40 @@ export function AdminSecuritySettings({
             </button>
           </form>
         </>
+      )}
+      {policy?.role === "super_admin" && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void call("patient-login-mode", "PUT", {
+              currentPassword,
+              enabled: sms.patientTestMode,
+            });
+          }}
+        >
+          <h3>{fa ? "ورود آزمایشی بیماران" : "Patient test sign-in"}</h3>
+          <label htmlFor="patient-test-login">
+            <input
+              id="patient-test-login"
+              type="checkbox"
+              checked={sms.patientTestMode}
+              onChange={(event) =>
+                setSms({ ...sms, patientTestMode: event.target.checked })
+              }
+            />
+            {fa
+              ? "ورود آزمایشی با کد ثابت 123456 فعال باشد"
+              : "Enable test sign-in with code 123456"}
+          </label>
+          <p className="notice warn">
+            {fa
+              ? "روشن: هر شمارهٔ بیمار با کد 123456 و بدون پیامک وارد می‌شود. خاموش: فقط کد واقعی پیامک‌شده پذیرفته می‌شود. فقط برای سایت آزمایشی و بدون اطلاعات واقعی استفاده کنید. با تغییر حالت، کدهای قبلی و نشست‌های بیماران باطل می‌شوند؛ ورود مدیر و پزشک شامل این قابلیت نیست."
+              : "On: patient numbers use 123456 without SMS. Off: only a real SMS code works. Use only with test data. Changing modes invalidates outstanding codes and patient sessions. Administrator and physician sign-in are excluded."}
+          </p>
+          <button className="button" disabled={busy || !currentPassword}>
+            {fa ? "ذخیرهٔ حالت ورود" : "Save sign-in mode"}
+          </button>
+        </form>
       )}
       {policy?.role === "super_admin" && (
         <form

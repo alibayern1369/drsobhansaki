@@ -194,8 +194,8 @@ async function dispatch(request: Request, segments: string[], method: string) {
       .object({ phone: z.string().transform(normalizeDigits) })
       .parse(await request.json());
     if (data.phone === "09000000000") throw new AppError(400, "INVALID_INPUT");
-    await requestOtp(data.phone);
-    return response({ ok: true });
+    const mode = await requestOtp(data.phone);
+    return response({ ok: true, ...mode });
   }
   if (method === "POST" && path === "auth/verify") {
     const data = z

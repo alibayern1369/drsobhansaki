@@ -71,17 +71,16 @@ export async function requireUser(admin = false) {
 export async function createSession(
   userId: string,
   adminPasswordVerified = false,
+  db: Pick<ReturnType<typeof getDb>, "insert"> = getDb(),
 ) {
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 7 * 86400000);
-  await getDb()
-    .insert(sessions)
-    .values({
-      userId,
-      tokenHash: hash(token),
-      expiresAt: expires,
-      adminPasswordVerified,
-    });
+  await db.insert(sessions).values({
+    userId,
+    tokenHash: hash(token),
+    expiresAt: expires,
+    adminPasswordVerified,
+  });
   (await cookies()).set("medical_session", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

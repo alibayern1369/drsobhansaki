@@ -1,7 +1,7 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import { cookies } from "next/headers";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/db";
 import {
@@ -11,7 +11,10 @@ import {
   rateLimits,
   sessions,
   users,
+  websiteSettings,
+  otpChallenges,
 } from "@/db/schema";
+import { patientTestMode } from "./patient-login-settings";
 import {
   decryptSecret,
   hashPassword,
@@ -387,6 +390,54 @@ export async function adminAccess(
     await audit(ctx.auth.user.id, "admin.password_changed");
     return { ok: true };
   }
+  if (action === "patient-login-mode" && method === "PUT") {
+    const user = await requireUser(true);
+    if (user.role !== "super_admin") throw new AppError(403, "FORBIDDEN");
+    const data = z
+      .object({ currentPassword: passwordSchema, enabled: z.boolean() })
+      .parse(input);
+    await confirmPassword(data.currentPassword);
+    await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtext('patient-login-mode'))`,
+      );
+      const previous = await patientTestMode(tx);
+      await tx
+        .insert(websiteSettings)
+        .values({ key: "patientTestLogin", value: { enabled: data.enabled } })
+        .onConflictDoUpdate({
+          target: websiteSettings.key,
+          set: { value: { enabled: data.enabled }, updatedAt: new Date() },
+        });
+      if (previous !== data.enabled) {
+        await tx
+          .update(otpChallenges)
+          .set({ consumedAt: new Date() })
+          .where(isNull(otpChallenges.consumedAt));
+        await tx
+          .delete(sessions)
+          .where(
+            inArray(
+              sessions.userId,
+              tx
+                .select({ id: users.id })
+                .from(users)
+                .where(eq(users.role, "patient")),
+            ),
+          );
+      }
+      await tx
+        .insert(auditLogs)
+        .values({
+          actorId: user.id,
+          action: "admin.patient_login_mode_changed",
+          entityType: "setting",
+          entityId: "patientTestLogin",
+          metadata: { enabled: data.enabled },
+        });
+    });
+    return { ok: true };
+  }
   if (action === "sms-settings") {
     const user = await requireUser(true);
     if (user.role !== "super_admin") throw new AppError(403, "FORBIDDEN");
@@ -398,6 +449,7 @@ export async function adminAccess(
         otpBodyId: saved?.otpBodyId || "",
         from: saved?.from || "",
         passwordConfigured: !!saved?.password,
+        patientTestMode: await patientTestMode(),
       };
     }
     if (method === "PUT") {
@@ -414,6 +466,11 @@ export async function adminAccess(
       const previous = await storedSmsSettings();
       const password = data.password || previous?.password;
       if (!password) throw new AppError(400, "SMS_NOT_CONFIGURED");
+      const testMode = await patientTestMode();
+      await db
+        .insert(websiteSettings)
+        .values({ key: "patientTestLogin", value: { enabled: testMode } })
+        .onConflictDoNothing();
       await saveSmsSettings({
         username: data.username,
         password,

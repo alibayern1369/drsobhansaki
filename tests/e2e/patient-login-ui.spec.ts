@@ -5,7 +5,7 @@ test("mobile login has no public chrome and collects a new patient's name after 
 }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.route("**/api/auth/otp", (route) =>
-    route.fulfill({ json: { ok: true } }),
+    route.fulfill({ json: { ok: true, testMode: true } }),
   );
   await page.route("**/api/auth/verify", (route) =>
     route.fulfill({ json: { ok: true, profileRequired: true } }),
@@ -21,6 +21,7 @@ test("mobile login has no public chrome and collects a new patient's name after 
   ).toHaveAttribute("href", "/fa");
   await page.getByLabel("شماره همراه", { exact: true }).fill("۰۹۱۲۳۴۵۶۷۸۹");
   await page.getByRole("button", { name: "دریافت کد تأیید" }).click();
+  await expect(page.getByRole("status")).toContainText("123456");
   await expect(page.locator("bdi")).toHaveText("0912 345 6789");
   await expect(page.locator("bdi")).toHaveAttribute("dir", "ltr");
   await page.getByLabel("کد تأیید شش‌رقمی").fill("123456");
