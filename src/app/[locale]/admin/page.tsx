@@ -18,12 +18,10 @@ export default async function Page({
   const auth = await currentUser();
   return (
     <main id="main" className="page-content">
-      {!auth || (auth.credential && !auth.passwordVerified) ? (
+      {!auth ||
+      !["doctor", "super_admin", "staff"].includes(auth.user.role) ||
+      (auth.credential && !auth.passwordVerified) ? (
         <AdminLogin locale={locale} />
-      ) : !["doctor", "super_admin", "staff"].includes(auth.user.role) ? (
-        <div className="empty-state">
-          <h1>{locale === "fa" ? "دسترسی مجاز نیست" : "Access denied"}</h1>
-        </div>
       ) : (
         <AdminPanel
           locale={locale}
